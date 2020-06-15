@@ -1,6 +1,6 @@
-#P2P Chat
+# P2P Chat
 
-##Notizen aus dem Meeting:
+## Notizen aus dem Meeting:
 
 Authentifizierung zur Verhinderung von Identitätsdiebstahl
 
