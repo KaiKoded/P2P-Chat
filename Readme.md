@@ -1,15 +1,16 @@
-#P2P Chat
+# P2P Chat
 
-##Notizen aus dem Meeting:
+## Notizen aus dem Meeting:
 
 Authentifizierung zur Verhinderung von Identitätsdiebstahl
 
 13. Juli Deadline
 
 Keine feste portnummer hardcoden
+
 server socket wie client socker dynamisch, damit man mit sich selbst testen kann
 
-tupel aus IP und Tupel übergeben
+tupel aus IP und Port übergeben
 
 viel loggen
 
