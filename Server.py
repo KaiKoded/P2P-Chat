@@ -20,12 +20,12 @@ class Server(threading.Thread):
             self.threads.append(conn)
             print(addr[0] + ":" + str(addr[1]) + " connected.")
             for connection in self.threads:
-                    connection.send(bytes(addr[0] + ":" + str(addr[1]) + " connected.", "utf-8"))
-            cThread = threading.Thread(target=self.clientThread, args=(conn, addr))
-            cThread.daemon = True
-            cThread.start()
+                connection.send(bytes(addr[0] + ":" + str(addr[1]) + " connected.", "utf-8"))
+            cthread = threading.Thread(target=self.client_thread, args=(conn, addr))
+            cthread.daemon = True
+            cthread.start()
 
-    def clientThread(self, conn, addr):
+    def client_thread(self, conn, addr):
         while True:
             try:
                 data = conn.recv(1024)
@@ -35,7 +35,6 @@ class Server(threading.Thread):
                 print(addr[0] + ":" + str(addr[1]) + " disconnected.")
                 for connection in self.threads:
                     connection.send(bytes(addr[0] + ":" + str(addr[1]) + " disconnected.", "utf-8"))
-                #print("client thread of " + addr[0] + ":" + str(addr[1]) + " encountered an error and is closing.")
                 break
             message = str(data, "utf-8")
             if message == "":
@@ -48,6 +47,7 @@ class Server(threading.Thread):
             print(addr[0] + ":" + str(addr[1]) + " writes: " + message)
             for connection in self.threads:
                 connection.send(bytes(addr[0] + ":" + str(addr[1]) + " writes: " + message, "utf-8"))
+
 
 # Nur für test, später entfernen
 if __name__ == "__main__":
