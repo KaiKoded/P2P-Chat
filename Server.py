@@ -11,12 +11,16 @@ class Server(threading.Thread):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.ip, self.port))
         self.sock.listen(1)
+        self.threads = []
         print("listening to " + self.ip + ":" + str(self.port))
 
     def run(self):
         while True:
             conn, addr = self.sock.accept()
+            self.threads.append(conn)
             print(addr[0] + ":" + str(addr[1]) + " connected.")
+            for connection in self.threads:
+                    connection.send(bytes(addr[0] + ":" + str(addr[1]) + " connected.", "utf-8"))
             cThread = threading.Thread(target=self.clientThread, args=(conn, addr))
             cThread.daemon = True
             cThread.start()
@@ -26,15 +30,24 @@ class Server(threading.Thread):
             try:
                 data = conn.recv(1024)
             except socket.error:
-                print("client thread of " + addr[0] + ":" + str(addr[1]) + " encountered an error and is closing.")
                 conn.close()
+                self.threads.remove(conn)
+                print(addr[0] + ":" + str(addr[1]) + " disconnected.")
+                for connection in self.threads:
+                    connection.send(bytes(addr[0] + ":" + str(addr[1]) + " disconnected.", "utf-8"))
+                #print("client thread of " + addr[0] + ":" + str(addr[1]) + " encountered an error and is closing.")
                 break
             message = str(data, "utf-8")
             if message == "":
-                print(addr[0] + ":" + str(addr[1]) + " disconnected.")
                 conn.close()
+                self.threads.remove(conn)
+                print(addr[0] + ":" + str(addr[1]) + " disconnected.")
+                for connection in self.threads:
+                    connection.send(bytes(addr[0] + ":" + str(addr[1]) + " disconnected.", "utf-8"))
                 break
-            print("The message is: " + message)
+            print(addr[0] + ":" + str(addr[1]) + " writes: " + message)
+            for connection in self.threads:
+                connection.send(bytes(addr[0] + ":" + str(addr[1]) + " writes: " + message, "utf-8"))
 
 # Nur für test, später entfernen
 if __name__ == "__main__":
