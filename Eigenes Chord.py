@@ -77,6 +77,7 @@ class LocalNode(object):
             print("Neue Chord DHT wurde gestartet. Warte auf Verbindungen.")
             return
         self.successor = self.succ(self.ring_position, self.entry_address).split("_")
+        self.notify_successor()
         print("Successor " + self.successor[0] + ":" + self.successor[1] + " an Position " + self.successor[2] + " gefunden.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
         for finger in finger_positions:
@@ -117,6 +118,17 @@ class LocalNode(object):
         self.succsock.close()
         return response
 
+    def notify_successor(self):
+        notisock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        notisock.connect((self.successor[0], int(self.successor[1])))
+        notisock.send(bytes("JOINED_LISTENING_" + self.ip + "_" + str(self.port),"utf-8"))
+        notisock.settimeout(GLOBAL_TIMEOUT)
+        try:
+            self.predecessor = str(notisock.recv(BUFFER_SIZE),"utf-8").split("_")
+        except socket.timeout:
+            pass
+
+
     @repeat_and_sleep(CHECK_PREDECESSOR_INT)
     @retry_on_socket_error(CHECK_PREDECESSOR_RET)
     def check_predecessor(self):
@@ -128,7 +140,7 @@ class LocalNode(object):
             #print("Kein predecessor vorhanden.")
             return
         self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.cpsock.settimeout(10)
+        self.cpsock.settimeout(GLOBAL_TIMEOUT)
         #print("check_predecessor(): Verbinde mit " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
         try:
             self.cpsock.connect((self.predecessor[0], int(self.predecessor[1])))
@@ -224,6 +236,10 @@ class LocalNode(object):
                 pass
             if command == "PING":
                 response = "PONG"
+            if command == "JOINED":
+                print("join(): Setze neuen Predecessor: " + msgsplit[2] + ":" + msgsplit[3] + " (" + msgsplit[4] + ")")
+                self.predecessor = [msgsplit[2], msgsplit[3], msgsplit[4]]
+                response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
 
             if response != "":
                 #print("Sending response: " + response)
