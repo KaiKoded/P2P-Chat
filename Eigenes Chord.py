@@ -155,6 +155,7 @@ class LocalNode(object):
         if int(response[2]) == self.ring_position:
             #print("stabilize(): Alles in Ordnung.")
             return
+        print("stabilize(): Setze neuen successor: " + response[0] + ":" + response[1] + " (" + response[2] + ")")
         self.successor = response
         self.stabsock.close()
         self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -167,15 +168,15 @@ class LocalNode(object):
     def server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(("0.0.0.0", 12345))
+        self.sock.bind(("0.0.0.0", self.port))
         self.sock.listen(1)
         self.conns = {}
         self.threads = {}
-        print("Listening to " + "0.0.0.0" + ":" + str(12345))
+        print("Listening to " + "0.0.0.0" + ":" + str(self.port))
         while True:
             conn, addr = self.sock.accept()
             self.conns[addr[0] + ":" + str(addr[1])] = conn
-            print(addr[0] + ":" + str(addr[1]) + " connected.")
+            #print(addr[0] + ":" + str(addr[1]) + " connected.")
             cthread = threading.Thread(target=self.client_thread, args=(conn, addr))
             cthread.daemon = True
             cthread.start()
@@ -210,12 +211,12 @@ class LocalNode(object):
                     self.successor = [msgsplit[3], msgsplit[4], sending_peer_id]
             if command == "STABILIZE":
                 if self.predecessor == []:
-                    print("Setze neuen Predecessor da zuvor keiner vorhanden: " + msgsplit[2] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
+                    print("stabilize(): Setze neuen Predecessor da zuvor keiner vorhanden: " + msgsplit[2] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
                     self.predecessor = [msgsplit[2], msgsplit[3], sending_peer_id]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
-                        print("Setze neuen Predecessor: " + str(addr[0]) + ":" + str(msgsplit[2]) + " (" + str(sending_peer_id) + ")")
+                        print("stabilize(): Setze neuen Predecessor: " + str(addr[0]) + ":" + str(msgsplit[2]) + " (" + str(sending_peer_id) + ")")
                         self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
@@ -335,5 +336,5 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode("192.168.178.20", 43232)
+    local = LocalNode("192.168.178.20", 12345)
     #local.start()
