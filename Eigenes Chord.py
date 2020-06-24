@@ -80,12 +80,15 @@ class LocalNode(object):
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
         for finger in finger_positions:
             info = self.succ(finger).split("_")
-            print("Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
-            self.fingers[int(info[2])] = (info[0], info[1])
+            if not [info[0], info[1]] in self.fingers.values():
+                print("Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
+                self.fingers[int(info[2])] = [info[0], info[1]]
 
         self.log("joined")
 
     def succ(self, k, entry = None):
+        print("succ(): Looking for key " + k)
+
         if entry is not None:
             address_to_connect_to = entry
             #message = "JOIN_" + k + "_" + "ID" + "_" + self.ring_position
@@ -97,6 +100,7 @@ class LocalNode(object):
             print("Distanz zum Successor: " + str(distance_to_successor))
             print("Distanz zum Key: " + str(distance_to_key))
             if distance_to_key <= distance_to_successor:
+                print("Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
                 return str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2])
             finger_positions = np.array(list(self.fingers.keys()))
             finger_distances = (int(k) - finger_positions) % SIZE
@@ -108,6 +112,7 @@ class LocalNode(object):
         self.succsock.connect(address_to_connect_to)
         self.succsock.send(bytes(message, "utf-8"))
         response = str(self.succsock.recv(1024), "utf-8")
+        print("Antwort erhalten: " + response)
         self.succsock.close()
         return response
 
@@ -118,7 +123,7 @@ class LocalNode(object):
         self.sock.listen(1)
         self.conns = {}
         self.threads = {}
-        print("listening to " + "0.0.0.0" + ":" + str(12345))
+        print("Listening to " + "0.0.0.0" + ":" + str(12345))
         while True:
             conn, addr = self.sock.accept()
             self.conns[addr[0] + ":" + str(addr[1])] = conn
