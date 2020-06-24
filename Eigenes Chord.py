@@ -128,11 +128,13 @@ class LocalNode(object):
             #print("Kein predecessor vorhanden.")
             return
         self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.cpsock.settimeout(10)
         #print("check_predecessor(): Verbinde mit " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
-        self.cpsock.connect((self.predecessor[0], int(self.predecessor[1])))
-        self.cpsock.send(bytes("PING", "utf-8"))
-        response = str(self.cpsock.recv(BUFFER_SIZE), "utf-8")
-        if not response:
+        try:
+            self.cpsock.connect((self.predecessor[0], int(self.predecessor[1])))
+            self.cpsock.send(bytes("PING", "utf-8"))
+            response = str(self.cpsock.recv(BUFFER_SIZE), "utf-8")
+        except socket.timeout:
             print("check_predecessor(): Keine Antwort erhalten. Entferne predecessor.")
             self.predecessor = []
             self.cpsock.close()
@@ -216,8 +218,8 @@ class LocalNode(object):
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (self.ring_position - int(sending_peer_id) % SIZE) < ((self.ring_position - int(self.predecessor[2])) % SIZE):
-                        print("stabilize(): Setze neuen Predecessor: " + str(addr[0]) + ":" + str(msgsplit[2]) + " (" + str(sending_peer_id) + ")")
-                        self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
+                        print("stabilize(): Setze neuen Predecessor: " + msgsplit[1] + ":" + msgsplit[2] + " (" + str(sending_peer_id) + ")")
+                        self.predecessor = [msgsplit[1], msgsplit[2], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
             if command == "PING":
