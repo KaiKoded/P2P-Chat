@@ -1,2 +1,4 @@
 p2p-chat.code-workspace
 .vscode/
+/venv/
+/Websitesammlung/
