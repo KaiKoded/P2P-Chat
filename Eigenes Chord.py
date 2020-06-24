@@ -107,7 +107,7 @@ class LocalNode(object):
             finger_distances = (int(k) - finger_positions) % SIZE
             id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
             address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
-        message = "SUCC_" + str(k) + "_" + "LISTENING" + "_" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
+        message = "SUCC_" + str(k) + "_" + "LISTENING" + "_" + str(self.ip) + "_" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
         self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
         self.succsock.connect((address_to_connect_to[0],int(address_to_connect_to[1])))
@@ -149,10 +149,9 @@ class LocalNode(object):
         self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #print("stabilize(): Verbinde mit " + str(self.successor[0]) + ":" + str(self.successor[1]))
         self.stabsock.connect((self.successor[0], int(self.successor[1])))
-        self.stabsock.send(bytes("STABILIZE_LISTENING_" + str(self.port) + "_ID_" + str(self.ring_position), "utf-8"))
-        response = str(self.stabsock.recv(BUFFER_SIZE), "utf-8")
+        self.stabsock.send(bytes("STABILIZE_LISTENING_" + str(self.ip) + "_" + str(self.port) + "_ID_" + str(self.ring_position), "utf-8"))
+        response = str(self.stabsock.recv(BUFFER_SIZE), "utf-8").split("_")
         #print("stabilize(): Antwort erhalten: " + response)
-        response = response.split("_")
         if int(response[2]) == self.ring_position:
             #print("stabilize(): Alles in Ordnung.")
             return
@@ -207,12 +206,12 @@ class LocalNode(object):
             if command == "SUCC":
                 response = self.succ(msgsplit[1])
                 if int(self.successor[2]) == int(self.ring_position):
-                    print("Setze neuen successor, weil zuvor alleine im Netzwerk: " + str(addr[0]) + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
-                    self.successor = [addr[0], msgsplit[3], sending_peer_id]
+                    print("Setze neuen successor, weil zuvor alleine im Netzwerk: " + msgsplit[3] + ":" + msgsplit[4] + " (" + str(sending_peer_id) + ")")
+                    self.successor = [msgsplit[3], msgsplit[4], sending_peer_id]
             if command == "STABILIZE":
                 if self.predecessor == []:
-                    print("Setze neuen Predecessor da zuvor keiner vorhanden: " + str(addr[0]) + ":" + str(msgsplit[2]) + " (" + str(sending_peer_id) + ")")
-                    self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
+                    print("Setze neuen Predecessor da zuvor keiner vorhanden: " + msgsplit[2] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
+                    self.predecessor = [msgsplit[2], msgsplit[3], sending_peer_id]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
