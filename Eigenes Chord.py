@@ -161,11 +161,12 @@ class LocalNode(object):
             #print("stabilize(): Alles in Ordnung.")
             return
         self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #print("stabilize(): Verbinde mit " + str(self.successor[0]) + ":" + str(self.successor[1]))
         self.stabsock.connect((self.successor[0], int(self.successor[1])))
-        self.stabsock.send(bytes("STABILIZE_LISTENING_" + str(self.ip) + "_" + str(self.port) + "_ID_" + str(self.ring_position), "utf-8"))
+        message = "STABILIZE_LISTENING_" + str(self.ip) + "_" + str(self.port) + "_ID_" + str(self.ring_position)
+        self.stabsock.send(bytes(message, "utf-8"))
+        #print("stabilize(): Nachricht an " + str(self.successor[0]) + ":" + str(self.successor[1]) + " : " + message)
         response = str(self.stabsock.recv(BUFFER_SIZE), "utf-8").split("_")
-        #print("stabilize(): Antwort erhalten: " + response)
+        #print("stabilize(): Antwort erhalten: " + "_".join(response))
         if int(response[2]) == self.ring_position:
             #print("stabilize(): Alles in Ordnung.")
             return
@@ -223,6 +224,7 @@ class LocalNode(object):
                 if int(self.successor[2]) == int(self.ring_position):
                     print("Server: Setze neuen successor, weil zuvor alleine im Netzwerk: " + msgsplit[3] + ":" + msgsplit[4] + " (" + str(sending_peer_id) + ")")
                     self.successor = [msgsplit[3], msgsplit[4], sending_peer_id]
+                    self.fingers[int(sending_peer_id)] = [msgsplit[3], msgsplit[4]]
             if command == "STABILIZE":
                 if self.predecessor == []:
                     print("Server: Setze neuen Predecessor da zuvor keiner vorhanden: " + msgsplit[2] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
@@ -354,5 +356,5 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode("192.168.178.20", 54321)
+    local = LocalNode("192.168.178.20", 12345)
     #local.start()
