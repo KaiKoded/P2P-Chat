@@ -215,7 +215,7 @@ class LocalNode(object):
                     self.predecessor = [msgsplit[2], msgsplit[3], sending_peer_id]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
-                if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
+                if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (self.ring_position - int(sending_peer_id) % SIZE) < ((self.ring_position - int(self.predecessor[2])) % SIZE):
                         print("stabilize(): Setze neuen Predecessor: " + str(addr[0]) + ":" + str(msgsplit[2]) + " (" + str(sending_peer_id) + ")")
                         self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
             if command == "FIXFINGERS":
@@ -336,5 +336,5 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode("192.168.178.20", 12345)
+    local = LocalNode("192.168.178.20", 54321)
     #local.start()
