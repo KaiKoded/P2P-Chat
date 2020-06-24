@@ -209,16 +209,16 @@ class LocalNode(object):
             if command == "SUCC":
                 response = self.succ(msgsplit[1])
                 if int(self.successor[2]) == int(self.ring_position):
-                    print("Setze neuen successor, weil zuvor alleine im Netzwerk: " + msgsplit[3] + ":" + msgsplit[4] + " (" + str(sending_peer_id) + ")")
+                    print("Server: Setze neuen successor, weil zuvor alleine im Netzwerk: " + msgsplit[3] + ":" + msgsplit[4] + " (" + str(sending_peer_id) + ")")
                     self.successor = [msgsplit[3], msgsplit[4], sending_peer_id]
             if command == "STABILIZE":
                 if self.predecessor == []:
-                    print("stabilize(): Setze neuen Predecessor da zuvor keiner vorhanden: " + msgsplit[2] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
+                    print("Server: Setze neuen Predecessor da zuvor keiner vorhanden: " + msgsplit[2] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
                     self.predecessor = [msgsplit[2], msgsplit[3], sending_peer_id]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
-                if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (self.ring_position - int(sending_peer_id) % SIZE) < ((self.ring_position - int(self.predecessor[2])) % SIZE):
-                        print("stabilize(): Setze neuen Predecessor: " + msgsplit[1] + ":" + msgsplit[2] + " (" + str(sending_peer_id) + ")")
+                if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (self.ring_position - int(sending_peer_id)) % SIZE < (self.ring_position - int(self.predecessor[2])) % SIZE:
+                        print("Server: Setze neuen Predecessor: " + msgsplit[1] + ":" + msgsplit[2] + " (" + str(sending_peer_id) + ")")
                         self.predecessor = [msgsplit[1], msgsplit[2], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
