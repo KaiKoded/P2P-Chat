@@ -101,13 +101,13 @@ class LocalNode(object):
             print("Distanz zum Successor: " + str(distance_to_successor))
             print("Distanz zum Key: " + str(distance_to_key))
             if distance_to_key <= distance_to_successor:
-                print("Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
+                #print("Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
                 return str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2])
             finger_positions = np.array(list(self.fingers.keys()))
             finger_distances = (int(k) - finger_positions) % SIZE
             id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
             address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
-        message = "SUCC_" + str(k) + "_" + "LISTENING" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
+        message = "SUCC_" + str(k) + "_" + "LISTENING" + "_" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
         self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
         self.succsock.connect((address_to_connect_to[0],int(address_to_connect_to[1])))
@@ -149,7 +149,7 @@ class LocalNode(object):
         self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print("stabilize(): Verbinde mit " + str(self.successor[0]) + ":" + str(self.successor[1]))
         self.stabsock.connect((self.successor[0], int(self.successor[1])))
-        self.stabsock.send(bytes("STABILIZE", "utf-8"))
+        self.stabsock.send(bytes("STABILIZE_LISTENING_" + str(self.port) + "_ID_" + self.ring_position, "utf-8"))
         response = str(self.stabsock.recv(BUFFER_SIZE), "utf-8")
         print("stabilize(): Antwort erhalten: " + response)
         response = response.split("_")
@@ -210,10 +210,13 @@ class LocalNode(object):
                     print("Setze neuen successor, weil zuvor alleine im Netzwerk.")
                     self.successor = [addr[0], msgsplit[3], sending_peer_id]
             if command == "STABILIZE":
+                if self.predecessor == []:
+                    print("Setze neuen Predecessor da zuvor keiner vorhanden: " + str(addr[0]) + ":" + str(msgsplit[2]))
+                    self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
-                        print("Setze neuen Predecessor: " + str(addr[0]) + ":" + str(addr[1]))
+                        print("Setze neuen Predecessor: " + str(addr[0]) + ":" + str(msgsplit[2]))
                         self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
