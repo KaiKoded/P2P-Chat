@@ -142,6 +142,9 @@ class LocalNode(object):
     @repeat_and_sleep(STABILIZE_INT)
     @retry_on_socket_error(STABILIZE_RET)
     def stabilize(self):
+        if self.successor == [self.address_[0], self.address_[1], self.ring_position]:
+            print("stabilize(): Alles in Ordnung.")
+            return
         self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print("stabilize(): Verbinde mit " + str(self.successor[0]) + ":" + str(self.successor[1]))
         self.stabsock.connect((self.successor[0], int(self.successor[1])))
@@ -204,7 +207,7 @@ class LocalNode(object):
                 response = self.succ(msgsplit[1])
                 if int(self.successor[2]) == int(self.ring_position):
                     print("Setze neuen successor, weil zuvor alleine im Netzwerk.")
-                    self.successor = [msgsplit[1], msgsplit[2], sending_peer_id]
+                    self.successor = [addr[0], addr[1], sending_peer_id]
             #if command == "JOIN":
                 #response = self.succ(msgsplit[1])
             if command == "STABILIZE":
@@ -212,7 +215,7 @@ class LocalNode(object):
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
                         print("Setze neuen Predecessor: " + msgsplit[1] + msgsplit[2] + sending_peer_id)
-                        self.predecessor = [msgsplit[1], msgsplit[2], sending_peer_id]
+                        self.predecessor = [addr[0], addr[1], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
             if command == "PING":
@@ -331,5 +334,5 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode(("192.168.178.29", 12345))
-    local.start()
+    local = LocalNode(("192.168.178.20", 12345))
+    #local.start()
