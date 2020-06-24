@@ -18,9 +18,10 @@ class Daemon(threading.Thread):
         getattr(self.obj_, self.method_)()
 
 class LocalNode(object):
-    def __init__(self, local_address):
+    def __init__(self, ip, port):
         # Eigene Adresse ist [IP, Port, Position]
-        self.address_ = local_address
+        self.ip = ip
+        self.port = port
         self.shutdown = False
         self.daemons = {}
         # Predecessor und Successor sind [IP, Port, Position]
@@ -65,17 +66,14 @@ class LocalNode(object):
             print("Daemon " + key + " started.")
         self.log("started")
 
-    def ping(self):
-        return True
-
     def id(self):
         return (self.username.__hash__()) % SIZE
 
     def join(self):
         print("Join started.")
         if not self.entry_address:
-            self.successor = [self.address_[0], self.address_[1], self.ring_position]
-            self.predecessor = [self.address_[0], self.address_[1], self.ring_position]
+            self.successor = [self.ip, self.port, self.ring_position]
+            self.predecessor = [self.ip, self.port, self.ring_position]
             print("Neue Chord DHT wurde gestartet. Warte auf Verbindungen.")
             return
         self.successor = self.succ(self.ring_position, self.entry_address).split("_")
@@ -109,7 +107,7 @@ class LocalNode(object):
             finger_distances = (int(k) - finger_positions) % SIZE
             id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
             address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
-        message = "SUCC_" + str(k) + "_" + "ID" + "_" + str(self.ring_position)
+        message = "SUCC_" + str(k) + "_" + "LISTENING" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
         self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
         self.succsock.connect((address_to_connect_to[0],int(address_to_connect_to[1])))
@@ -123,15 +121,15 @@ class LocalNode(object):
     @retry_on_socket_error(CHECK_PREDECESSOR_RET)
     def check_predecessor(self):
         print("check_predecessor(): Pinging predecessor.")
-        if self.predecessor == [self.address_[0], self.address_[1], self.ring_position]:
+        if self.predecessor == [self.ip, self.port, self.ring_position]:
             print("check_predecessor(): Ich bin mein eigener Predecessor.")
             return
         if self.predecessor == []:
             print("Kein predecessor vorhanden.")
             return
         self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print("check_predecessor(): Verbinde mit " + str(self.predecessor[1]) + ":" + str(self.predecessor[2]))
-        self.cpsock.connect((self.predecessor[1], self.predecessor[2]))
+        print("check_predecessor(): Verbinde mit " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
+        self.cpsock.connect((self.predecessor[0], self.predecessor[1]))
         self.cpsock.send(bytes("PING", "utf-8"))
         response = str(self.cpsock.recv(BUFFER_SIZE), "utf-8")
         if not response:
@@ -145,7 +143,7 @@ class LocalNode(object):
     @repeat_and_sleep(STABILIZE_INT)
     @retry_on_socket_error(STABILIZE_RET)
     def stabilize(self):
-        if self.successor == [self.address_[0], self.address_[1], self.ring_position]:
+        if self.successor == [self.ip, self.port, self.ring_position]:
             print("stabilize(): Alles in Ordnung.")
             return
         self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -164,7 +162,7 @@ class LocalNode(object):
         print("stabilize(): Verbinde mit " + str(self.successor[0]) + ":" + str(self.successor[1]))
         self.stabsock.connect((self.successor[0], int(self.successor[1])))
         print("stabilize(): Neuem Successor wird bescheid gesagt.")
-        self.stabsock.send(bytes("PREDECESSOR?_" + str(self.address_[0]) + "_" + str(self.address_[1]) + "_" + str(self.ring_position), "utf-8"))
+        self.stabsock.send(bytes("PREDECESSOR?_" + str(self.ip) + "_" + str(self.port) + "_" + str(self.ring_position), "utf-8"))
         self.stabsock.close()
 
     def server(self):
@@ -210,15 +208,13 @@ class LocalNode(object):
                 response = self.succ(msgsplit[1])
                 if int(self.successor[2]) == int(self.ring_position):
                     print("Setze neuen successor, weil zuvor alleine im Netzwerk.")
-                    self.successor = [addr[0], addr[1], sending_peer_id]
-            #if command == "JOIN":
-                #response = self.succ(msgsplit[1])
+                    self.successor = [addr[0], msgsplit[3], sending_peer_id]
             if command == "STABILIZE":
-                response = self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
+                response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
-                        print("Setze neuen Predecessor: " + addr[0] + ":" + addr[1])
-                        self.predecessor = [addr[0], addr[1], sending_peer_id]
+                        print("Setze neuen Predecessor: " + str(addr[0]) + ":" + str(addr[1]))
+                        self.predecessor = [addr[0], msgsplit[2], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
             if command == "PING":
@@ -337,5 +333,5 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode(("192.168.178.20", 12345))
+    local = LocalNode("192.168.178.20", 12345)
     #local.start()
