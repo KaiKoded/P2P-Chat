@@ -121,7 +121,7 @@ class LocalNode(object):
     def notify_successor(self):
         notisock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         notisock.connect((self.successor[0], int(self.successor[1])))
-        notisock.send(bytes("JOINED_LISTENING_" + self.ip + "_" + str(self.port),"utf-8"))
+        notisock.send(bytes("JOINED_LISTENING_" + self.ip + "_" + str(self.port) + "_" + str(self.ring_position),"utf-8"))
         notisock.settimeout(GLOBAL_TIMEOUT)
         try:
             self.predecessor = str(notisock.recv(BUFFER_SIZE),"utf-8").split("_")
