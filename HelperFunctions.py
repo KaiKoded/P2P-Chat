@@ -1,6 +1,7 @@
 from Settings import SIZE
 import time
 import socket
+import sys
 
 def requires_connection(func):
     """ initiates and cleans up connections with remote server """

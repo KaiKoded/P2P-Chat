@@ -129,7 +129,7 @@ class LocalNode(object):
             return
         self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print("check_predecessor(): Verbinde mit " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
-        self.cpsock.connect((self.predecessor[0], self.predecessor[1]))
+        self.cpsock.connect((self.predecessor[0], int(self.predecessor[1])))
         self.cpsock.send(bytes("PING", "utf-8"))
         response = str(self.cpsock.recv(BUFFER_SIZE), "utf-8")
         if not response:
