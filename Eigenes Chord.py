@@ -126,8 +126,11 @@ class LocalNode(object):
         if self.predecessor == [self.address_[0], self.address_[1], self.ring_position]:
             print("check_predecessor(): Ich bin mein eigener Predecessor.")
             return
+        if self.predecessor == []:
+            print("Kein predecessor vorhanden.")
+            return
         self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print("check_predecessor(): Verbinde mit " + self.predecessor[1] + ":" + str(self.predecessor[2]))
+        print("check_predecessor(): Verbinde mit " + str(self.predecessor[1]) + ":" + str(self.predecessor[2]))
         self.cpsock.connect((self.predecessor[1], self.predecessor[2]))
         self.cpsock.send(bytes("PING", "utf-8"))
         response = str(self.cpsock.recv(BUFFER_SIZE), "utf-8")
@@ -214,7 +217,7 @@ class LocalNode(object):
                 response = self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
             if command == "PREDECESSOR?":
                 if self.predecessor == [] or int(self.predecessor[2]) == int(self.ring_position) or (int(sending_peer_id) - self.ring_position) % SIZE < (int(self.predecessor[2]) - self.ring_position) % SIZE:
-                        print("Setze neuen Predecessor: " + msgsplit[1] + msgsplit[2] + sending_peer_id)
+                        print("Setze neuen Predecessor: " + addr[0] + ":" + addr[1])
                         self.predecessor = [addr[0], addr[1], sending_peer_id]
             if command == "FIXFINGERS":
                 pass
