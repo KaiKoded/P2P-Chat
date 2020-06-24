@@ -31,7 +31,8 @@ class LocalNode(object):
         self.fingers = {}
         #self.public_key = ?
         #self.private_key = ?
-        self.entry_address = input("Please specify IP and Port of DHT entry (if empty, new DHT will be created): ")
+        self.entry_address = input("Please specify IP and Port of DHT entry (if empty, new DHT will be created): ").split(":")
+        self.entry_address = (self.entry_address[0], int(self.entry_address[1]))
         self.username = input("Please choose your username: ")
         self.ring_position = self.id()
         print("self id = %s" % self.ring_position)
@@ -89,16 +90,21 @@ class LocalNode(object):
             address_to_connect_to = entry
             #message = "JOIN_" + k + "_" + "ID" + "_" + self.ring_position
         else:
-            distance_to_successor = (self.successor[2] - self.ring_position) % SIZE
-            distance_to_key = (k - self.ring_position) % SIZE
+            distance_to_successor = (int(self.successor[2]) - int(self.ring_position)) % SIZE
+            if distance_to_successor == 0:
+                distance_to_successor = SIZE
+            distance_to_key = (int(k) - self.ring_position) % SIZE
+            print("Distanz zum Successor: " + str(distance_to_successor))
+            print("Distanz zum Key: " + str(distance_to_key))
             if distance_to_key <= distance_to_successor:
-                return self.successor[0] + "_" + self.successor[1] + "_" + self.successor[2]
+                return str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2])
             finger_positions = np.array(list(self.fingers.keys()))
-            finger_distances = (k - finger_positions) % SIZE
-            id_of_closest_finger = finger_positions[np.where(finger_distances == np.min(finger_distances))]
+            finger_distances = (int(k) - finger_positions) % SIZE
+            id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
             address_to_connect_to = self.fingers[id_of_closest_finger]
-        message = "SUCC_" + k + "_" + "ID" + "_" + self.ring_position
+        message = "SUCC_" + str(k) + "_" + "ID" + "_" + str(self.ring_position)
         self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
         self.succsock.connect(address_to_connect_to)
         self.succsock.send(bytes(message, "utf-8"))
         response = str(self.succsock.recv(1024), "utf-8")
@@ -108,11 +114,11 @@ class LocalNode(object):
     def server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind((self.address_[0], self.address_[1]))
+        self.sock.bind(("0.0.0.0", 12345))
         self.sock.listen(1)
         self.conns = {}
         self.threads = {}
-        print("listening to " + self.address_[0] + ":" + str(self.address_[1]))
+        print("listening to " + "0.0.0.0" + ":" + str(12345))
         while True:
             conn, addr = self.sock.accept()
             self.conns[addr[0] + ":" + str(addr[1])] = conn
@@ -130,16 +136,16 @@ class LocalNode(object):
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 del self.threads[addr[0] + ":" + str(addr[1])]
-                print(addr[0] + ":" + str(addr[1]) + " disconnected.")
+                print(addr[0] + ":" + str(addr[1]) + " disconnected (Error).")
                 break
             message = str(data, "utf-8")
             if not message:
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 del self.threads[addr[0] + ":" + str(addr[1])]
-                print(addr[0] + ":" + str(addr[1]) + " disconnected.")
+                print(addr[0] + ":" + str(addr[1]) + " disconnected (No Message).")
                 break
-            print(message)
+            print("Message received: " + message)
             msgsplit = message.split("_")
             command = msgsplit[0]
             sending_peer_id = msgsplit[-1]
@@ -154,7 +160,8 @@ class LocalNode(object):
             if command == "CHECKPREDECESSOR":
                 response = "TRUE_ID_" + self.ring_position
 
-            self.conns[conn].send(bytes(response, "utf-8"))
+            print("Sending response: " + response)
+            self.conns[addr[0] + ":" + str(addr[1])].send(bytes(response, "utf-8"))
     # @repeat_and_sleep(STABILIZE_INT)
     # @retry_on_socket_error(STABILIZE_RET)
     # def stabilize(self):
@@ -265,5 +272,5 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode(("127.0.0.1", 12345))
+    local = LocalNode(("192.168.178.29", 12345))
     local.start()
