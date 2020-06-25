@@ -37,7 +37,8 @@ class LocalNode(object):
             self.entry_address = (self.entry_address[0], int(self.entry_address[1]))
         self.username = input("Please choose your username: ")
         self.ring_position = self.id()
-        print("self id = %s" % self.ring_position)
+        print("Eigene Adresse = %s:%s" % (self.ip, self.port))
+        print("Eigene ID = %s" % self.ring_position)
         self.join()
         self.start_daemons()
         #self.distribute(self.username)
@@ -50,16 +51,12 @@ class LocalNode(object):
         self.sock.close()
 
     def log(self, info):
-        #f = open("/tmp/chord.log", "a+")
-        #f.write(str(self.id()) + " : " + info + "\n")
-        #f.close()
         print(str(self.id()) + " : " + info)
 
     def start_daemons(self):
-        # start the daemons
         self.daemons['server'] = Daemon(self, 'server')
         self.daemons['check_predecessor'] = Daemon(self, 'check_predecessor')
-        #self.daemons['fix_fingers'] = Daemon(self, 'fix_fingers')
+        self.daemons['fix_fingers'] = Daemon(self, 'fix_fingers')
         self.daemons['stabilize'] = Daemon(self, 'stabilize')
         for key in self.daemons:
             self.daemons[key].start()
@@ -80,12 +77,13 @@ class LocalNode(object):
         self.notify_successor()
         print("Successor " + self.successor[0] + ":" + self.successor[1] + " an Position " + self.successor[2] + " gefunden.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
-        for finger in finger_positions:
-            info = self.succ(finger).split("_")
-            if not [info[0], info[1]] in self.fingers.values():
-                print("Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
-                self.fingers[int(info[2])] = [info[0], info[1]]
-
+        print("Looking for fingers")
+        self.fix_fingers()
+        # for finger in finger_positions:
+        #     info = self.succ(finger).split("_")
+        #     if not [info[0], info[1]] in self.fingers.values():
+        #         print("Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
+        #         self.fingers[int(info[2])] = [info[0], info[1]]
         self.log("joined")
 
     def succ(self, k, entry = None):
@@ -127,7 +125,6 @@ class LocalNode(object):
             self.predecessor = str(notisock.recv(BUFFER_SIZE),"utf-8").split("_")
         except socket.timeout:
             pass
-
 
     @repeat_and_sleep(CHECK_PREDECESSOR_INT)
     @retry_on_socket_error(CHECK_PREDECESSOR_RET)
@@ -180,6 +177,15 @@ class LocalNode(object):
         self.stabsock.send(bytes("PREDECESSOR?_" + str(self.ip) + "_" + str(self.port) + "_" + str(self.ring_position), "utf-8"))
         self.stabsock.close()
 
+    @repeat_and_sleep(FIX_FINGERS_INT)
+    def fix_fingers(self):
+        finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
+        for finger in finger_positions:
+            info = self.succ(finger).split("_")
+            if not [info[0], info[1]] in self.fingers.values():
+                print("fix_fingers(): Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
+                self.fingers[int(info[2])] = [info[0], info[1]]
+
     def server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -202,6 +208,7 @@ class LocalNode(object):
             try:
                 data = conn.recv(BUFFER_SIZE)
             except socket.error:
+                print("Socket " + addr[0] + ":" + str(addr[1]) + "wird geschlossen und thread stirbt.")
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 del self.threads[addr[0] + ":" + str(addr[1])]
@@ -209,6 +216,7 @@ class LocalNode(object):
                 break
             message = str(data, "utf-8")
             if not message:
+                print("Socket " + addr[0] + ":" + str(addr[1]) + "wird geschlossen und thread stirbt.")
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 del self.threads[addr[0] + ":" + str(addr[1])]
@@ -246,115 +254,7 @@ class LocalNode(object):
             if response != "":
                 #print("Sending response: " + response)
                 self.conns[addr[0] + ":" + str(addr[1])].send(bytes(response, "utf-8"))
-    # @repeat_and_sleep(STABILIZE_INT)
-    # @retry_on_socket_error(STABILIZE_RET)
-    # def stabilize(self):
-    #     self.log("stabilize")
-    #     suc = self.successor()
-    #     # We may have found that x is our new successor iff
-    #     # - x = pred(suc(n))
-    #     # - x exists
-    #     # - x is in range (n, suc(n))
-    #     # - [n+1, suc(n)) is non-empty
-    #     # fix finger_[0] if successor failed
-    #     if suc.id() != self.finger_[0].id():
-    #         self.finger_[0] = suc
-    #     x = suc.predecessor()
-    #     if x is not None and inrange(x.id(), self.id(1), suc.id()) and self.id(1) != suc.id() and x.ping():
-    #         self.finger_[0] = x
-    #     # We notify our new successor about us
-    #     self.successor().notify(self)
-    #     # Keep calling us
-    #     return True
-    #
-    # def notify(self, remote):
-    #     # Someone thinks they are our predecessor, they are iff
-    #     # - we don't have a predecessor
-    #     # OR
-    #     # - the new node r is in the range (pred(n), n)
-    #     # OR
-    #     # - our previous predecessor is dead
-    #     self.log("notify")
-    #     if self.predecessor() == None or inrange(remote.id(), self.predecessor().id(1), self.id()) or not self.predecessor().ping():
-    #         self.predecessor_ = remote
-
-    # @repeat_and_sleep(FIX_FINGERS_INT)
-    # def fix_fingers(self):
-    #     # Randomly select an entry in finger_ table and update its value
-    #     self.log("fix_fingers")
-    #     i = random.randrange(m - 1) + 1
-    #     self.finger_[i] = self.find_successor(self.id(1 << i))
-    #     # Keep calling us
-    #     return True
-    #
-    # @repeat_and_sleep(UPDATE_SUCCESSORS_INT)
-    # @retry_on_socket_error(UPDATE_SUCCESSORS_RET)
-    # def update_successors(self):
-    #     self.log("update successor")
-    #     suc = self.successor()
-    #     # if we are not alone in the ring, calculate
-    #     if suc.id() != self.id():
-    #         successors = [suc]
-    #         suc_list = suc.get_successors()
-    #         if suc_list and len(suc_list):
-    #             successors += suc_list
-    #         # if everything worked, we update
-    #         self.successors_ = successors
-    #     return True
-    #
-    # def get_successors(self):
-    #     self.log("get_successors")
-    #     return map(lambda node: (node.address_.ip, node.address_.port), self.successors_[:N_SUCCESSORS - 1])
-    #
-    # def successor(self):
-    #     # We make sure to return an existing successor, there `might`
-    #     # be redundance between finger_[0] and successors_[0], but
-    #     # it doesn't harm
-    #     for remote in [self.finger_[0]] + self.successors_:
-    #         if remote.ping():
-    #             self.finger_[0] = remote
-    #             return remote
-    #     print("No successor available, aborting")
-    #     self.shutdown_ = True
-    #     sys.exit(-1)
-    #
-    # def predecessor(self):
-    #     return self.predecessor_
-    #
-    # # @retry_on_socket_error(FIND_SUCCESSOR_RET)
-    # def find_successor(self, id):
-    #     # The successor of a key can be us iff
-    #     # - we have a pred(n)
-    #     # - id is in (pred(n), n]
-    #     self.log("find_successor")
-    #     if self.predecessor() and \
-    #             inrange(id, self.predecessor().id(1), self.id(1)):
-    #         return self
-    #     node = self.find_predecessor(id)
-    #     return node.successor()
-    #
-    # # @retry_on_socket_error(FIND_PREDECESSOR_RET)
-    # def find_predecessor(self, id):
-    #     self.log("find_predecessor")
-    #     node = self
-    #     # If we are alone in the ring, we are the pred(id)
-    #     if node.successor().id() == node.id():
-    #         return node
-    #     while not inrange(id, node.id(1), node.successor().id(1)):
-    #         node = node.closest_preceding_finger(id)
-    #     return node
-    #
-    # def closest_preceding_finger(self, id):
-    #     # first fingers in decreasing distance, then successors in
-    #     # increasing distance.
-    #     self.log("closest_preceding_finger")
-    #     for remote in reversed(self.successors_ + self.finger_):
-    #         if remote != None and inrange(remote.id(), self.id(1), id) and remote.ping():
-    #             return remote
-    #     return self
-
 
 
 if __name__ == "__main__":
     local = LocalNode("192.168.178.20", 12345)
-    #local.start()
