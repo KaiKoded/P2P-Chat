@@ -29,6 +29,7 @@ class LocalNode(object):
         self.successor = []
         # Fingers sind [Position : [ID, Port]]
         self.fingers = {}
+        self.fingerlock = threading.Lock()
         #self.public_key = ?
         #self.private_key = ?
         self.entry_address = input("Please specify IP and Port of DHT entry (if empty, new DHT will be created): ")
@@ -109,11 +110,13 @@ class LocalNode(object):
         message = "SUCC_" + str(k) + "_" + "LISTENING" + "_" + str(self.ip) + "_" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
         self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
+        self.fingerlock.acquire()
         self.succsock.connect((address_to_connect_to[0],int(address_to_connect_to[1])))
         self.succsock.send(bytes(message, "utf-8"))
         response = str(self.succsock.recv(BUFFER_SIZE), "utf-8")
         #print("Antwort erhalten: " + response)
         self.succsock.close()
+        self.fingerlock.release()
         return response
 
     def notify_successor(self):
@@ -184,13 +187,16 @@ class LocalNode(object):
             try:
                 self.ffsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.ffsock.settimeout(GLOBAL_TIMEOUT)
+                self.fingerlock.acquire()
                 self.ffsock.connect((self.fingers[finger][0], int(self.fingers[finger][1])))
                 self.ffsock.send(bytes("PING", "utf-8"))
                 response = str(self.ffsock.recv(BUFFER_SIZE), "utf-8")
             except socket.timeout:
                 print("fix_fingers(): Keine Antwort erhalten. Entferne finger " + str(self.fingers[finger][0]) + ":" + str(self.fingers[finger][1]) + " (" + str(finger) + ")")
                 del self.fingers[finger]
+            finally:
                 self.ffsock.close()
+                self.fingerlock.release()
         for finger in finger_positions:
             info = self.succ(finger).split("_")
             if not [info[0], info[1]] in self.fingers.values():
@@ -266,4 +272,4 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode("192.168.178.20", 12345)
+    local = LocalNode("192.168.178.20", 54321)
