@@ -102,7 +102,7 @@ class LocalNode(object):
             if distance_to_key <= distance_to_successor:
                 #print("Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
                 return str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2])
-            finger_positions = np.array(list(self.fingers.keys()))
+            finger_positions = np.array(list(self.fingers))
             finger_distances = (int(k) - finger_positions) % SIZE
             id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
             address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
@@ -180,7 +180,7 @@ class LocalNode(object):
     @repeat_and_sleep(FIX_FINGERS_INT)
     def fix_fingers(self):
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
-        for finger in self.fingers.keys():
+        for finger in list(self.fingers):
             try:
                 self.ffsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.ffsock.settimeout(GLOBAL_TIMEOUT)
