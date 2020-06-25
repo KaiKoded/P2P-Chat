@@ -180,6 +180,17 @@ class LocalNode(object):
     @repeat_and_sleep(FIX_FINGERS_INT)
     def fix_fingers(self):
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
+        for finger in self.fingers.keys():
+            try:
+                self.ffsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.ffsock.settimeout(GLOBAL_TIMEOUT)
+                self.ffsock.connect((self.fingers[finger][0], int(self.fingers[finger][1])))
+                self.ffsock.send(bytes("PING", "utf-8"))
+                response = str(self.ffsock.recv(BUFFER_SIZE), "utf-8")
+            except socket.timeout:
+                print("fix_fingers(): Keine Antwort erhalten. Entferne finger " + str(self.fingers[finger][0]) + ":" + str(self.fingers[finger][1]) + " (" + str(finger) + ")")
+                del self.fingers[finger]
+                self.ffsock.close()
         for finger in finger_positions:
             info = self.succ(finger).split("_")
             if not [info[0], info[1]] in self.fingers.values():
@@ -190,7 +201,7 @@ class LocalNode(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(("0.0.0.0", self.port))
-        self.sock.listen(1)
+        self.sock.listen(10)
         self.conns = {}
         self.threads = {}
         print("Listening to " + "0.0.0.0" + ":" + str(self.port))
@@ -208,7 +219,6 @@ class LocalNode(object):
             try:
                 data = conn.recv(BUFFER_SIZE)
             except socket.error:
-                print("Socket " + addr[0] + ":" + str(addr[1]) + "wird geschlossen und thread stirbt.")
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 del self.threads[addr[0] + ":" + str(addr[1])]
@@ -216,7 +226,6 @@ class LocalNode(object):
                 break
             message = str(data, "utf-8")
             if not message:
-                print("Socket " + addr[0] + ":" + str(addr[1]) + "wird geschlossen und thread stirbt.")
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 del self.threads[addr[0] + ":" + str(addr[1])]

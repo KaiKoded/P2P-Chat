@@ -11,7 +11,7 @@ BUFFER_SIZE = 256
 # INT = interval in seconds
 # RET = retry limit
 
-GLOBAL_TIMEOUT = 10
+GLOBAL_TIMEOUT = 5
 
 # Stabilize
 STABILIZE_INT = 2
