@@ -4,6 +4,7 @@ import random
 import sys
 import socket
 import numpy as np
+import hashlib
 
 from HelperFunctions import *
 from Settings import *
@@ -29,7 +30,7 @@ class LocalNode(object):
         self.successor = []
         # Fingers sind [Position : [ID, Port]]
         self.fingers = {}
-        self.succlock = threading.Lock()
+        self.lock = threading.Lock()
         #self.public_key = ?
         #self.private_key = ?
         self.entry_address = input("Please specify IP and Port of DHT entry (if empty, new DHT will be created): ")
@@ -65,7 +66,8 @@ class LocalNode(object):
         self.log("started")
 
     def id(self):
-        return (self.username.__hash__()) % SIZE
+        #return hash(self.username) % SIZE
+        return int(hashlib.sha1(self.username.encode("utf-8")).hexdigest(), 16) % SIZE
 
     def join(self):
         print("Join started.")
@@ -76,21 +78,22 @@ class LocalNode(object):
             return
         self.successor = self.succ(self.ring_position, self.entry_address).split("_")
         self.notify_successor()
+        self.fingers[int(self.successor[2])] = [self.successor[0], self.successor[1]]
         print("Successor " + self.successor[0] + ":" + self.successor[1] + " an Position " + self.successor[2] + " gefunden.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
         print("Looking for fingers")
+        print("Finger " + self.successor[0] + ":" + self.successor[1] + " an Position " + self.successor[2] + " gefunden.")
         for finger in finger_positions:
-            if not finger < int(self.successor[2]):
+            if not (int(self.successor[2]) - finger) % SIZE < (int(self.successor[2]) - self.ring_position) % SIZE:
                 info = self.succ(finger).split("_")
-                if not [info[0], info[1]] in self.fingers.values():
+                if not [info[0], info[1]] in self.fingers.values() and not [info[0], info[1]] == [self.ip, str(self.port)]:
                     print("Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
                     self.fingers[int(info[2])] = [info[0], info[1]]
-        self.log("joined")
+        print("Join finished.")
 
+    @retry_on_socket_error(SUCC_RET)
     def succ(self, k, entry = None):
-        self.succlock.acquire()
         #print("succ(): Looking for key " + str(k))
-
         if entry is not None:
             address_to_connect_to = entry
             #message = "JOIN_" + k + "_" + "ID" + "_" + self.ring_position
@@ -102,24 +105,34 @@ class LocalNode(object):
             #("Distanz zum Successor: " + str(distance_to_successor))
             #print("Distanz zum Key: " + str(distance_to_key))
             if distance_to_key <= distance_to_successor:
-                #print("Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
-                self.succlock.release()
+                #print("succ() : Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
                 return str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2])
             finger_positions = np.array(list(self.fingers))
             finger_distances = (int(k) - finger_positions) % SIZE
             id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
-            address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
+            if np.min(finger_distances) > (int(k) - int(self.successor[2])) % SIZE:
+                address_to_connect_to = (self.successor[0], self.successor[1])
+            else:
+                address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
+        self.lock.acquire()
         message = "SUCC_" + str(k) + "_" + "LISTENING" + "_" + str(self.ip) + "_" + str(self.port) + "_" + "ID" + "_" + str(self.ring_position)
         self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #self.succsock.settimeout(GLOBAL_TIMEOUT)
         #print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
         #self.fingerlock.acquire()
+        #print("succ(): Mein aktueller successor: " + str(self.successor))
+        #print("succ(): Gesucht wird bei: " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
         self.succsock.connect((address_to_connect_to[0],int(address_to_connect_to[1])))
         self.succsock.send(bytes(message, "utf-8"))
+        #print("succ(): Warte auf Antwort von " + str(address_to_connect_to[0] + ":" + str(address_to_connect_to[1])))
+        #print("Mein Successor: " + str(self.successor))
+        #print("Meine Finger:")
+        #print(list(self.fingers.values()))
         response = str(self.succsock.recv(BUFFER_SIZE), "utf-8")
+        #print("succ(): Antwort erhalten.")
         #print("Antwort erhalten: " + response)
         self.succsock.close()
-        #self.fingerlock.release()
-        self.succlock.release()
+        self.lock.release()
         return response
 
     def notify_successor(self):
@@ -145,7 +158,7 @@ class LocalNode(object):
             return
         self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.cpsock.settimeout(GLOBAL_TIMEOUT)
-        #print("check_predecessor(): Verbinde mit " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
+        #print("check_predecessor(): Pinge " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
         try:
             self.cpsock.connect((self.predecessor[0], int(self.predecessor[1])))
             self.cpsock.send(bytes("PING_CP", "utf-8"))
@@ -161,6 +174,7 @@ class LocalNode(object):
     @repeat_and_sleep(STABILIZE_INT)
     @retry_on_socket_error(STABILIZE_RET)
     def stabilize(self):
+        #print("stabilize() : Started")
         if self.successor == [self.ip, self.port, self.ring_position]:
             #print("stabilize(): Alles in Ordnung.")
             return
@@ -171,9 +185,10 @@ class LocalNode(object):
         #print("stabilize(): Nachricht an " + str(self.successor[0]) + ":" + str(self.successor[1]) + " : " + message)
         response = str(self.stabsock.recv(BUFFER_SIZE), "utf-8").split("_")
         #print("stabilize(): Antwort erhalten: " + "_".join(response))
-        if int(response[2]) == self.ring_position:
+        if int(response[2]) == int(self.ring_position):
             #print("stabilize(): Alles in Ordnung.")
             return
+        #print("stabilize(): " + response[2] + " unterscheidet sich von " + str(self.ring_position))
         print("stabilize(): Setze neuen successor: " + response[0] + ":" + response[1] + " (" + response[2] + ")")
         self.successor = response
         self.stabsock.close()
@@ -187,6 +202,9 @@ class LocalNode(object):
     @repeat_and_sleep(FIX_FINGERS_INT)
     @retry_on_socket_error(FIX_FINGERS_RET)
     def fix_fingers(self):
+        if self.successor == [self.ip, self.port, self.ring_position]:
+            return
+        #print("fix_fingers(): Pinging Finger list.")
         for finger in list(self.fingers):
             if not [self.fingers[finger][0], int(self.fingers[finger][1])] == [self.ip, int(self.port)]:
                 self.ffsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -198,18 +216,54 @@ class LocalNode(object):
                     self.ffsock.send(bytes("PING_FF", "utf-8"))
                     response = str(self.ffsock.recv(BUFFER_SIZE), "utf-8")
                     #print("fix_fingers(): Response received.")
-                except socket.timeout or socket.error:
+                except socket.timeout:
+                    print("fix_fingers(): Keine Antwort erhalten. Entferne finger " + str(self.fingers[finger][0]) + ":" + str(self.fingers[finger][1]) + " (" + str(finger) + ")")
+                    del self.fingers[finger]
+                except socket.error:
                     print("fix_fingers(): Keine Antwort erhalten. Entferne finger " + str(self.fingers[finger][0]) + ":" + str(self.fingers[finger][1]) + " (" + str(finger) + ")")
                     del self.fingers[finger]
                 self.ffsock.close()
                     #self.fingerlock.release()
+        #print("fix_fingers(): Looking for new fingers.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
+        #finger_diff = False
         for fpos in finger_positions:
-            if not fpos < int(self.successor[2]):
-                info = self.succ(fpos).split("_")
-                if not [info[0], info[1]] in self.fingers.values() and not [info[0], info[1]] == [self.ip, str(self.port)]:
-                    print("fix_fingers(): Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
-                    self.fingers[int(info[2])] = [info[0], info[1]]
+            #print("fpos = " + str(fpos))
+            #print("Successor-ID: " + str(self.successor[2]))
+            #print("Aktuelle Finger: " + str(list(self.fingers)))
+            #print("fix_fingers(): Check if " + str((int(self.successor[2]) - fpos) % SIZE) + " < " + str((int(self.successor[2]) - self.ring_position) % SIZE))
+
+            #if not (int(self.successor[2]) - fpos) % SIZE < (int(self.successor[2]) - self.ring_position) % SIZE:
+
+            # originally indented:
+
+            #print("fix_fingers(): Führe succ(" + str(fpos) + ") aus.")
+            info = self.succ(fpos).split("_")
+            if not [info[0], info[1]] in self.fingers.values() and not [info[0], info[1]] == [self.ip, str(self.port)]:
+                print("fix_fingers(): Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
+                self.fingers[int(info[2])] = [info[0], info[1]]
+                #finger_diff = True
+
+        if not self.fingers:
+            return
+        #print("Initial fingers:")
+        #print(list(self.fingers))
+        times_minimum = np.zeros_like(list(self.fingers))
+        for fpos in finger_positions:
+            #print("Checke Fingerposition " + str(fpos))
+            distances = (np.array(list(self.fingers)) - fpos) % SIZE
+            #print("Distanzen:")
+            #print(distances)
+            times_minimum[np.where(distances == np.min(distances))] += 1
+            #print("Wie oft jedes minimal:")
+            #print(times_minimum)
+            to_delete = np.where(times_minimum == 0)[0].tolist()
+            #print("Welcher Index gelöscht wird:")
+            #print(to_delete)
+        if to_delete:
+            for d in to_delete:
+                print("fix_fingers(): Lösche redundanten Finger " + self.fingers[list(self.fingers.keys())[d]][0] + ":" + str(self.fingers[list(self.fingers.keys())[d]][1]) + " (" + str(list(self.fingers.keys())[d]) + ")")
+                del self.fingers[list(self.fingers.keys())[d]]
 
     def server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -245,13 +299,15 @@ class LocalNode(object):
                 del self.threads[addr[0] + ":" + str(addr[1])]
                 #print(addr[0] + ":" + str(addr[1]) + " disconnected (No Message).")
                 break
-            #print("Message received: " + message)
+            #print("Message from " + addr[0] + ":" + str(addr[1]) + ": " + message)
             msgsplit = message.split("_")
             command = msgsplit[0]
             sending_peer_id = msgsplit[-1]
             response = ""
             if command == "SUCC":
+                #print("Server (succ) : Suche nach " + msgsplit[1] + ", auf Anfrage von Peer " + sending_peer_id)
                 response = self.succ(msgsplit[1])
+                #print("Server (succ) : Antworte " + response)
                 if int(self.successor[2]) == int(self.ring_position):
                     print("Server: Setze neuen Successor und Finger, weil zuvor alleine im Netzwerk: " + msgsplit[3] + ":" + msgsplit[4] + " (" + str(sending_peer_id) + ")")
                     self.successor = [msgsplit[3], msgsplit[4], sending_peer_id]
@@ -280,4 +336,9 @@ class LocalNode(object):
 
 
 if __name__ == "__main__":
-    local = LocalNode("192.168.178.20", 12346)
+    #local = LocalNode("192.168.178.20", 11111)
+    #local = LocalNode("192.168.178.20", 22222)
+    local = LocalNode("192.168.178.20", 32323)
+    #while True:
+        #print("Active Threads: " + str(threading.active_count()))
+        #time.sleep(5)

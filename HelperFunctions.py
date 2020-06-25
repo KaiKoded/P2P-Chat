@@ -38,6 +38,13 @@ def send_to_socket(s, msg):
     #	print "respond : %s" % msg
     s.sendall(str(msg) + "\r\n")
 
+def lock_it_away(func):
+    def inner(self, *args, **kwargs):
+        self.lock.acquire()
+        ret = func(self, *args, **kwargs)
+        self.lock.release()
+        return ret
+    return inner
 
 def repeat_and_sleep(sleep_time):
     def decorator(func):
