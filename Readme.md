@@ -14,7 +14,7 @@ tupel aus IP und Port übergeben
 
 viel loggen
 
-netzverkehr aufzeichen (wireshark? PCP-Dump?) -> pcap datei
+netzverkehr aufzeichen (wireshark? TCP-Dump?) -> pcap datei
 
 sockets parallel verarbeiten (parallele threads? -> Schwierig vor allem in Python)
 oder Systemaufruf select (ohne parallelisierung)
