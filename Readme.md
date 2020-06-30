@@ -14,9 +14,15 @@ tupel aus IP und Port übergeben
 
 viel loggen
 
-netzverkehr aufzeichen (wireshark?) -> pcap datei
+netzverkehr aufzeichen (wireshark? TCP-Dump?) -> pcap datei
 
 sockets parallel verarbeiten (parallele threads? -> Schwierig vor allem in Python)
 oder Systemaufruf select (ohne parallelisierung)
 
 SHA-2, MD5 hashfunktionen sind ok
+
+keine Library die Sockets matched oder Chord implementiert
+Library für DHT oder Verschlüsselung ok
+
+1Thread pro Socket schlecht
+SELECT in Python wartet auf mehrere threads bis man ein auf einem schreiben kann 
