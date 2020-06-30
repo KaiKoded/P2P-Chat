@@ -2,6 +2,7 @@ from Settings import SIZE
 import time
 import socket
 import sys
+import threading
 
 def requires_connection(func):
     """ initiates and cleans up connections with remote server """
@@ -38,13 +39,15 @@ def send_to_socket(s, msg):
     #	print "respond : %s" % msg
     s.sendall(str(msg) + "\r\n")
 
-def lock_it_away(func):
-    def inner(self, *args, **kwargs):
-        self.lock.acquire()
-        ret = func(self, *args, **kwargs)
-        self.lock.release()
-        return ret
-    return inner
+def lock_it_away():
+    def decorator(func):
+        def inner(self, *args, **kwargs):
+            self.lock.acquire()
+            ret = func(self, *args, **kwargs)
+            self.lock.release()
+            return ret
+        return inner
+    return decorator
 
 def repeat_and_sleep(sleep_time):
     def decorator(func):
@@ -73,9 +76,12 @@ def retry_on_socket_error(retry_limit):
                     time.sleep(2 ** retry_count)
                     retry_count += 1
             if retry_count == retry_limit:
-                print("Retry count limit reached, aborting.. (%s)" % func.__name__)
-                self.shutdown = True
-                sys.exit(-1)
+                print("Target couldn't be reached. (Function " + func.__name__() + ", Thread " + str(threading.currentThread()) + ")")
+
+                #self.close_connection()
+                #self.unreachable = True
+                #self.shutdown = True
+                #sys.exit(-1)
         return inner
     return decorator
 
