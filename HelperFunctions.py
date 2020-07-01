@@ -76,7 +76,7 @@ def retry_on_socket_error(retry_limit):
                     time.sleep(2 ** retry_count)
                     retry_count += 1
             if retry_count == retry_limit:
-                print("Target couldn't be reached. (Function " + func.__name__() + ", Thread " + str(threading.currentThread()) + ")")
+                print("Target couldn't be reached. (Function " + str(func) + ", Thread " + str(threading.currentThread()) + ")")
 
                 #self.close_connection()
                 #self.unreachable = True
