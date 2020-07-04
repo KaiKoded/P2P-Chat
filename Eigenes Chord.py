@@ -5,6 +5,8 @@ import sys
 import socket
 import numpy as np
 import hashlib
+from datetime import datetime
+
 
 from HelperFunctions import *
 from Settings import *
@@ -23,7 +25,7 @@ class Daemon(threading.Thread):
 class LocalNode(object):
     def __init__(self, port):
         # Eigene Adresse ist [IP, Port, Position]
-        self.ip = "127.0.0.1"#socket.gethostbyname(socket.gethostname())
+        self.ip = socket.gethostbyname(socket.gethostname())
         self.port = port
         self.shutdown = False
         self.daemons = {}
@@ -32,7 +34,7 @@ class LocalNode(object):
         self.successor = []
         # Fingers sind [Position : [ID, Port]]
         self.fingers = {}
-        # DHT Einträge sind {hash : [IP, Port, Public Key]}     (evtl. noch ne Gültigkeitsdauer?)
+        # DHT Einträge sind {hash : [IP, Port, Public Key, Timestamp]}
         self.keys = {}
         self.lock = threading.Lock()
         self.public_key = ""
@@ -77,11 +79,8 @@ class LocalNode(object):
         if not self.entry_address:
             self.successor = [self.ip, self.port, self.ring_position]
             self.predecessor = [self.ip, self.port, self.ring_position]
-            print("Distributing Name")
-            distribute_status = self.distribute_name()
-            if distribute_status == "ERROR":
-                print("Name could not be distributed.")
-                sys.exit(-1)
+            username_key = int(hashlib.sha1(self.username.encode("utf-8")).hexdigest(), 16) % SIZE
+            self.keys[username_key] = [self.ip, self.port, self.public_key, datetime.timestamp(datetime.now())]
             print("Neue Chord DHT wurde gestartet. Warte auf Verbindungen.")
             return
         print("join () : Suche successor von eigener Ringposition")
@@ -324,17 +323,22 @@ class LocalNode(object):
 
     def distribute_name(self):
         username_key = int(hashlib.sha1(self.username.encode("utf-8")).hexdigest(), 16) % SIZE
+        print("distribute_name(): Username-Ringposition: " + str(username_key))
         responsible_peer = self.succ(username_key).split("_")
         if responsible_peer == "ERROR":
             print("distribute_name() : Name konnte nicht verteilt werden, da verantwortlicher Peer nicht erreichbar ist."
                   "Join wird abgebrochen.")
             return "ERROR"
         # Port und Ringposition sind Integers:
+        if responsible_peer == [self.ip, str(self.port), str(self.ring_position)]:
+            self.keys[username_key] = [self.ip, self.port, self.public_key, datetime.timestamp(datetime.now())]
+            print("distribute_name() : Key wird bei sich selbst gespeichert.")
+            return
         distsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             distsock.connect((responsible_peer[0], int(responsible_peer[1])))
             distsock.settimeout(GLOBAL_TIMEOUT)
-            distsock.send(bytes("DISTRIBUTE_" + username_key + "_LISTENING_" + self.port + "_PUBLICKEY_" + self.public_key, "utf-8"))
+            distsock.send(bytes("DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(self.port) + "_PUBLICKEY_" + self.public_key, "utf-8"))
             response = str(distsock.recv(BUFFER_SIZE), "utf-8").split("_")
             if response[0] == "SUCCESS":
                 return "SUCCESS"
@@ -349,7 +353,7 @@ class LocalNode(object):
                 if response == "FAILURE":
                     return "ERROR"
         except socket.error:
-            # TODO: Localhost verweigert Verbindungen mit sich selbst
+            # TODO: Localhost verweigert Verbindungen mit sich selbst, weil der Server noch nicht läuft
             print("distribute_name(): Socket Error.")
             return "ERROR"
 
@@ -387,7 +391,7 @@ class LocalNode(object):
                 del self.threads[addr[0] + ":" + str(addr[1])]
                 # print(addr[0] + ":" + str(addr[1]) + " disconnected (No Message).")
                 break
-            print("Message from " + addr[0] + ":" + str(addr[1]) + ": " + message)
+            #print("Message from " + addr[0] + ":" + str(addr[1]) + ": " + message)
             msgsplit = message.split("_")
             command = msgsplit[0]
             sending_peer_id = msgsplit[-1]
@@ -430,7 +434,7 @@ class LocalNode(object):
                 remote_public_key = msgsplit[5]
                 if not remote_hash in list(self.keys):
                     print("Server : Speichere key mit Position " + remote_hash)
-                    self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key]
+                    self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key, datetime.timestamp(datetime.now())]
                     response = "SUCCESS"
                 else:
                     # TODO: Encrypt a message with this key
@@ -440,18 +444,18 @@ class LocalNode(object):
                     decrypted_message = str(conn.recv(BUFFER_SIZE), "utf-8")
                     if decrypted_message == message_to_encrypt:
                         print("Server : Speichere key mit Position " + remote_hash)
-                        self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key]
+                        self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key, datetime.timestamp(datetime.now())]
                         response = "SUCCESS"
                     else:
                         response = "FAILURE"
 
             if response != "":
-                print("Sending response: " + response)
+                #print("Sending response: " + response)
                 self.conns[addr[0] + ":" + str(addr[1])].send(bytes(response, "utf-8"))
 
 
 if __name__ == "__main__":
-    local = LocalNode(11114)
+    local = LocalNode(11113)
     # 192.168.178.20:11111
     # ay-test.duckdns.org:11111
     # Kai : 95.91.208.139:11111
