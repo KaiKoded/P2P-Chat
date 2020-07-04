@@ -360,6 +360,31 @@ class LocalNode(object):
             print("distribute_name(): Socket Error.")
             return "ERROR"
 
+    def start_chat(self, remote_ip: str, remote_port: int):
+        try:
+            chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            chatsock.settimeout(GLOBAL_TIMEOUT)
+            chatsock.connect((remote_ip, remote_port))
+            chatsock.send(bytes(f"CHAT_LISTENING_{self.port + 1}", "utf-8"))
+            chatsock.close()
+            chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            chatsock.settimeout(GLOBAL_TIMEOUT)
+            chatsock.bind((remote_ip, self.port + 1))
+            chatsock.listen(1)
+            addr, conn = chatsock.accept()
+        except socket.error:
+            print("lol")
+        return conn
+
+    def connect_chat(self, remote_ip: str, remote_port: int):
+        try:
+            connectsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            connectsock.settimeout(GLOBAL_TIMEOUT)
+            connectsock.connect((remote_ip, remote_port))
+        except socket.error:
+            print("lel")
+        return connectsock
+
     def server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -410,28 +435,28 @@ class LocalNode(object):
                             0] + ":" + msgsplit[4] + " (" + str(sending_peer_id) + ")")
                     self.successor = [addr[0], int(msgsplit[4]), int(sending_peer_id)]
                     self.fingers[int(sending_peer_id)] = [msgsplit[3], int(msgsplit[4])]
-            if command == "STABILIZE":
+            elif command == "STABILIZE":
                 if self.predecessor == []:
                     print("Server: Setze neuen Predecessor da zuvor keiner vorhanden: " + addr[0] + ":" + msgsplit[
                         3] + " (" + str(sending_peer_id) + ")")
                     self.predecessor = [addr[0], int(msgsplit[3]), int(sending_peer_id)]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
-            if command == "PREDECESSOR?":
+            elif command == "PREDECESSOR?":
                 if self.predecessor == [] or self.predecessor[2] == self.ring_position or (
                         self.ring_position - int(sending_peer_id)) % SIZE < (
                         self.ring_position - self.predecessor[2]) % SIZE:
                     print("Server: Setze neuen Predecessor: " + addr[0] + ":" + msgsplit[2] + " (" + str(
                         sending_peer_id) + ")")
                     self.predecessor = [addr[0], int(msgsplit[2]), int(sending_peer_id)]
-            if command == "FIXFINGERS":
+            elif command == "FIXFINGERS":
                 pass
-            if command == "PING":
+            elif command == "PING":
                 response = "PONG"
-            if command == "JOINED":
+            elif command == "JOINED":
                 print("join(): Setze neuen Predecessor: " + addr[0] + ":" + msgsplit[3] + " (" + msgsplit[4] + ")")
                 # response = self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
                 self.predecessor = [addr[0], int(msgsplit[3]), int(msgsplit[4])]
-            if command == "DISTRIBUTE":
+            elif command == "DISTRIBUTE":
                 remote_hash = msgsplit[1]
                 remote_port = msgsplit[3]
                 remote_public_key = msgsplit[5]
@@ -451,6 +476,14 @@ class LocalNode(object):
                         response = "SUCCESS"
                     else:
                         response = "FAILURE"
+            elif command == "CHAT":
+                remote_ip = addr[0]
+                remote_port = int(msgsplit[2])
+                chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port))
+                del self.threads[addr[0] + ":" + str(addr[1])]
+                del self.conns[addr[0] + ":" + str(addr[1])]
+                break
+
 
             if response != "":
                 #print("Sending response: " + response)
