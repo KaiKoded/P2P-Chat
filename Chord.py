@@ -23,8 +23,9 @@ class Daemon(threading.Thread):
 
 
 class LocalNode(object):
-    def __init__(self, port: int, entry_address: str, username: str):
+    def __init__(self, app, port: int, entry_address: str, username: str):
         # Eigene Adresse ist [IP, Port, Position]
+        self.app = app
         self.ip = "127.0.0.1"
         self.port = port
         self.shutdown = False
@@ -365,24 +366,29 @@ class LocalNode(object):
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
             chatsock.connect((remote_ip, remote_port))
-            chatsock.send(bytes(f"CHAT_LISTENING_{self.port + 1}", "utf-8"))
+            chatsock.send(bytes(f"CHAT_{self.port + 1}", "utf-8"))
             chatsock.close()
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
             chatsock.bind((remote_ip, self.port + 1))
             chatsock.listen(1)
-            addr, conn = chatsock.accept()
-        except socket.error:
-            print("lol")
+            conn, addr = chatsock.accept()
+            self.app.conn_or_socket = conn
+            self.app.connected = True
+        except Exception as msg:
+            print(msg)
         return conn
 
     def connect_chat(self, remote_ip: str, remote_port: int):
+        print(f"Incoming chat from {remote_ip}:{remote_port}")
         try:
             connectsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connectsock.settimeout(GLOBAL_TIMEOUT)
             connectsock.connect((remote_ip, remote_port))
-        except socket.error:
-            print("lel")
+            self.app.conn_or_socket = connectsock
+            self.app.connected = True
+        except Exception as msg:
+            print(msg)
         return connectsock
 
     def server(self):
@@ -478,10 +484,9 @@ class LocalNode(object):
                         response = "FAILURE"
             elif command == "CHAT":
                 remote_ip = addr[0]
-                remote_port = int(msgsplit[2])
+                remote_port = int(msgsplit[1])
                 chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port))
-                del self.threads[addr[0] + ":" + str(addr[1])]
-                del self.conns[addr[0] + ":" + str(addr[1])]
+                chat_thread.start()
                 break
 
 

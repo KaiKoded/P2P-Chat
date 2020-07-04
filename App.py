@@ -1,6 +1,9 @@
 from appJar import gui
 import Chat
 import Chord
+import socket
+import time
+import threading
 
 class App_UI(object):
     gui = gui("Threading Chord", "800x400")
@@ -10,14 +13,28 @@ class App_UI(object):
     quit = False
     entry_address = "",
     username = ""
+    friend_name = ""
+    connected = False
+    conn_or_socket = {}
 
-app = App_UI()
-app.gui.addLabel("title", "P2P Chat")
-app.gui.addLabelEntry("Username")
-app.gui.addLabelEntry("Port")
-app.gui.addLabelEntry("EntryPoint")
-local_node: Chord.LocalNode
+    def read_message(self,friend_name: str, message: str):
+        self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
+        self.gui.setMessage("chat_output", self.app.chat_content)
 
+    def chat(self):
+        print(f"Starting chat")
+        thread=threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
+        thread.start()
+        app.gui.stop()
+        app.gui = gui("Threading Chord Chat", "800x400")
+        app.gui.startLabelFrame("Chat")
+        app.gui.addEmptyMessage("chat_output")
+        app.gui.addEntry("chat_input")
+        app.gui.addButtons(["Send", "Quit"], Chat.chat_button)
+        app.gui.stopLabelFrame()
+        app.gui.go()
+
+    
 def login(button):
     global app
     if button == "Cancel":
@@ -29,31 +46,44 @@ def login(button):
         connect_to_overlay(app)
         
 def connect_to_overlay(app):
-    #TODO
     app.gui.stop()
+
     global local_node
-    local_node = Chord.LocalNode(port=app.port, entry_address=app.entry_address, username=app.username)
+    local_node = Chord.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
     app.gui = gui("Peer2Peer Chat", "800x400")
     app.gui.addLabelEntry("Friend to connect")
-    app.gui.addButtons(["Connect"], connect_to_friend)
+    app.gui.addButtons(["Connect", "Wait"], connect_to_friend)
     app.gui.go()
 
-def connect_to_friend():
+def connect_to_friend(button):
     global app
     global local_node
-    app.gui.stop()
-    friend_username = app.gui.getEntry("Friend to connect")
-    friend_ip, friend_port, ring_pos = local_node.succ(local_node.hash_username(friend_username)).split("_")
-    Chat.start_chat(app, friend_ip, int(friend_port))
-
-def chatting(button):
+    if button == "Wait":
+        wait_for_friend()
+    else:
+        app.friend_name = app.gui.getEntry("Friend to connect")
+        friend_ip, friend_port, ring_pos = local_node.succ(local_node.hash_username(app.friend_name)).split("_")
+        local_node.start_chat(friend_ip, int(friend_port))
+        app.chat()
+    
+def wait_for_friend():
     global app
-    input = app.gui.getEntry("chat_input")
-    app.gui.clearEntry("chat_input")
-    app.chat_content = app.chat_content + "\n" + f"You wrote: {input}"
-    app.gui.setMessage("chat_output", app.chat_content)
+    #app.gui.stop()
+    print("Waiting for friend")
+    while True:
+        if app.connected:
+            app.chat()
+            break
 
+
+app = App_UI()
+local_node: Chord.LocalNode = {}
+
+app.gui.addLabel("title", "P2P Chat")
+app.gui.addLabelEntry("Username")
+app.gui.addLabelEntry("Port")
+app.gui.addLabelEntry("EntryPoint")
 
 app.gui.addButtons(["Login", "Cancel"], login)
 app.gui.go()
