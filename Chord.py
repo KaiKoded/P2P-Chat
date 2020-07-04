@@ -23,9 +23,9 @@ class Daemon(threading.Thread):
 
 
 class LocalNode(object):
-    def __init__(self, port):
+    def __init__(self, port: int, entry_address: str, username: str):
         # Eigene Adresse ist [IP, Port, Position]
-        self.ip = socket.gethostbyname(socket.gethostname())
+        self.ip = "127.0.0.1"
         self.port = port
         self.shutdown = False
         self.daemons = {}
@@ -39,17 +39,20 @@ class LocalNode(object):
         self.lock = threading.Lock()
         self.public_key = ""
         self.private_key = ""
-        self.entry_address = input("Please specify IP and Port of DHT entry (if empty, new DHT will be created): ")
+        self.entry_address = entry_address
         if self.entry_address != "":
             self.entry_address = self.entry_address.split(":")
             self.entry_address = (":".join(self.entry_address[:-1]), int(self.entry_address[-1]))
-        self.username = input("Please choose your username: ")
+        self.username = username
         self.ring_position = self.id()
         print("Eigene Adresse = %s:%s" % (self.ip, self.port))
         print("Eigene Ringposition : %s" % self.ring_position)
         self.join()
         self.start_daemons()
         # self.distribute(self.username)
+
+    def hash_username(self, username: str):
+        return int(hashlib.sha1(username.encode("utf-8")).hexdigest(), 16) % SIZE
 
     def shutdown(self):
         self.shutdown = True

@@ -63,6 +63,7 @@ def sending(app, partner_ip:str, partner_port:int):
             app.input_ready = False
             message = app.gui.getEntry("chat_input")
             app.chat_content = app.chat_content + "\n" + f"You say: {message}"
+            app.gui.setMessage("chat_output", app.chat_content)
             if message == "" or message == "EXIT":
                 sending_socket.close()
                 break

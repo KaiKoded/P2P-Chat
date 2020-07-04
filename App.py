@@ -1,6 +1,6 @@
 from appJar import gui
 import Chat
-
+import Chord
 
 class App_UI(object):
     gui = gui("Threading Chord", "800x400")
@@ -8,28 +8,32 @@ class App_UI(object):
     input_ready = False
     port = 11111
     quit = False
+    entry_address = "",
+    username = ""
 
 app = App_UI()
 app.gui.addLabel("title", "P2P Chat")
 app.gui.addLabelEntry("Username")
 app.gui.addLabelEntry("Port")
 app.gui.addLabelEntry("EntryPoint")
+local_node: Chord.LocalNode
 
 def login(button):
     global app
     if button == "Cancel":
         app.gui.stop()
     else:
-        username = app.gui.getEntry("Username")
+        app.username = app.gui.getEntry("Username")
         app.port = int(app.gui.getEntry("Port"))
-        entry = app.gui.getEntry("EntryPoint")
-        connect_to_overlay(entry)
+        app.entry_address = app.gui.getEntry("EntryPoint")
+        connect_to_overlay(app)
         
-def connect_to_overlay(entry):
+def connect_to_overlay(app):
     #TODO
-    global app
     app.gui.stop()
-    # TODO Connect to overlay
+    global local_node
+    local_node = Chord.LocalNode(port=app.port, entry_address=app.entry_address, username=app.username)
+
     app.gui = gui("Peer2Peer Chat", "800x400")
     app.gui.addLabelEntry("Friend to connect")
     app.gui.addButtons(["Connect"], connect_to_friend)
@@ -37,10 +41,10 @@ def connect_to_overlay(entry):
 
 def connect_to_friend():
     global app
+    global local_node
     app.gui.stop()
     friend_username = app.gui.getEntry("Friend to connect")
-    # TODO Connect to friend peer
-    friend_ip, friend_port = friend_username.split(':') # TODO
+    friend_ip, friend_port, ring_pos = local_node.succ(local_node.hash_username(friend_username)).split("_")
     Chat.start_chat(app, friend_ip, int(friend_port))
 
 def chatting(button):
