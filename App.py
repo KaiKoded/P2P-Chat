@@ -41,10 +41,11 @@ def connect_to_friend():
 def start_chat(friend_name):
     global app 
     app = gui("Peer2Peer Chat", "800x400")
-    app.addEmptryMessage("chat_output")
+    app.startLabelFrame("Chat")
+    app.addEmptyMessage("chat_output")
     app.addEntry("chat_input")
     app.addButtons(["Send", "Quit"], chatting)
-    app.set
+    app.stopLabelFrame()
     app.go()
 
 def chatting(button):
