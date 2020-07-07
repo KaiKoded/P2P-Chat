@@ -351,7 +351,6 @@ class LocalNode(object):
                 if response == "FAILURE":
                     return "ERROR"
         except socket.error:
-            # TODO: Localhost verweigert Verbindungen mit sich selbst, weil der Server noch nicht läuft
             print("distribute_name(): Socket Error.")
             return "ERROR"
 
