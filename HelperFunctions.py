@@ -54,7 +54,7 @@ def repeat_and_sleep(sleep_time):
         def inner(self, *args, **kwargs):
             while True:
                 time.sleep(sleep_time)
-                if self.shutdown:
+                if self.shutdown_:
                     return
                 func(self, *args, **kwargs)
                 #if not ret:
