@@ -55,17 +55,20 @@ def openPublicKey():
     return public_key
 
 def encrypt(message, public_key):
-    message = message.encode
+    if len(message) > 0:
+        message = message.encode('utf-8')
 
-    encryptedTxT = public_key.encrypt(
-        message,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+        encryptedTxT = public_key.encrypt(
+            message,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
         )
-    )
-    return encryptedTxT
+        return encryptedTxT
+    else:
+        pass
 
 def decrypt(private_key, encryptedTxT):
     original_message = private_key.decrypt(
@@ -76,8 +79,11 @@ def decrypt(private_key, encryptedTxT):
             label=None
         )
     )
+    print(original_message)
     return original_message
 
+
+# Test ob gespeicherte Keys noch gleich sind
 priv = getPrivateKey()
 pub = getPublicKey(priv)
 print("Private:")
@@ -89,6 +95,19 @@ newpub = openPublicKey()
 privatepem = newpriv.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=serialization.NoEncryption() 
     )
 print(privatepem)
+print("Enter your message:")
+message = str(input())
+if len(message) > 0:
+    print (message)
+    secret = encrypt(message, pub)
+else:
+    print ("empty")
+
+decrypt(priv, secret)
+
+#ToDo: if statement ob private key vorhanden ist
+#ToDo: if statement ob public key vorhanden ist
+#ToDo: prüfen ob die keys vorhanden sind, wenn ja dann auslesen, wenn nein dann generieren und speichern
