@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from HelperFunctions import *
 from Settings import *
+from KeyGen import *
 
 class Daemon(threading.Thread):
     def __init__(self, obj, method):
@@ -49,6 +50,9 @@ class LocalNode(object):
         print(f"Eigene Ringposition = {self.ring_position}")
         self.join()
         self.start_daemons()
+        private_key = getPrivateKey()
+        public_key = getPublicKey(private_key)
+
         # self.distribute(self.username)
 
     def hash_username(self, username: str):

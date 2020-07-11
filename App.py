@@ -44,7 +44,7 @@ def login(button):
         app.port = int(app.gui.getEntry("Port"))
         app.entry_address = app.gui.getEntry("EntryPoint")
         connect_to_overlay(app)
-        
+
 def connect_to_overlay(app):
     app.gui.stop()
 
@@ -78,12 +78,22 @@ def wait_for_friend():
 
 
 app = App_UI()
+
 local_node = {}
 
 app.gui.addLabel("title", "P2P Chat")
 app.gui.addLabelEntry("Username")
 app.gui.addLabelEntry("Port")
-app.gui.addLabelEntry("EntryPoint")
-
+app.gui.addLabelEntry("Enter an IP with a Port (IP:Port)")
 app.gui.addButtons(["Login", "Cancel"], login)
 app.gui.go()
+
+'''
+Anleitung:
+Username = e.g. User1
+Port = e.g. 111111
+Entry Point = e.g. 192.168.178.98:111111
+
+Friend to connect = e.g. Peter
+
+'''
