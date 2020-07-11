@@ -38,8 +38,9 @@ class LocalNode(object):
         # DHT Einträge sind {hash : [IP, Port, Public Key, Timestamp]}
         self.keys = {}
         self.lock = threading.Lock()
-        self.public_key = ""
-        self.private_key = ""
+        private_key = getPrivateKey()
+        self.private_key = private_key
+        self.public_key = getPublicKey(private_key)
         self.entry_address = entry_address
         if self.entry_address != "":
             self.entry_address = self.entry_address.split(":")
@@ -50,9 +51,6 @@ class LocalNode(object):
         print(f"Eigene Ringposition = {self.ring_position}")
         self.join()
         self.start_daemons()
-        private_key = getPrivateKey()
-        public_key = getPublicKey(private_key)
-
         # self.distribute(self.username)
 
     def hash_username(self, username: str):
@@ -342,13 +340,18 @@ class LocalNode(object):
             distsock.connect((responsible_peer[0], int(responsible_peer[1])))
             distsock.settimeout(GLOBAL_TIMEOUT)
             distsock.send(bytes("DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(self.port) + "_PUBLICKEY_" + self.public_key + "_" + str(self.ring_position), "utf-8"))
+            #if it doesn't work try this:
+            #distsock.send(bytes("DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(self.port) + "_PUBLICKEY_" + self.public_key + "_" + str(self.ring_position), "utf-8"))
+            distsock.send(bytes("DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(
+                self.port) + "_PUBLICKEY_" + self.public_key + "_" + str(self.ring_position), "utf-8"))
             response = str(distsock.recv(BUFFER_SIZE), "utf-8").split("_")
             if response[0] == "SUCCESS":
                 return "SUCCESS"
             if response[0] == "DECRYPT":
-                # TODO: Decrypt message with private key
-                encrypted_message = response[1]
-                decrypted_message = ""
+
+                # TODO:TEST to Decrypt message with private key
+                #encrypted_message = response[1]
+                decrypted_message = decrypt(self.private_key, response[1])
                 distsock.send(bytes(decrypted_message, "utf-8"))
                 response = str(distsock.recv(BUFFER_SIZE), "utf-8")
                 if response == "SUCCESS":
@@ -405,14 +408,14 @@ class LocalNode(object):
                 timestamp = self.keys[x][3]
                 time_then = datetime.utcfromtimestamp(timestamp)
                 if timedelta.total_seconds(datetime.utcnow() - time_then) < 60 * 60 * 24:
-                    print("give_keys(): Übergebe Key " + str(x) + " an " + remote_address[0] + ":" + str(remote_address[1]))
+                    print("give_keys(): Delivering Key " + str(x) + " to " + remote_address[0] + ":" + str(remote_address[1]))
                     givesock.send(bytes("GIVE_" + str(x) + "_" + ip + "_" + port + "_" + public_key + "_" + str(timestamp) + "_" + str(self.ring_position), "utf-8"))
                 else:
                     print("give_keys() : Dropping old username of " + ip + ":" + str(port))
                 del self.keys[x]
             givesock.close()
         except socket.error:
-            print("give_keys() : Keys konnten nicht an " + remote_address[0] + ":" + str(remote_address[1]) + " übermittelt werden.")
+            print("give_keys() : Unable to send Keys" + remote_address[0] + ":" + str(remote_address[1]))
             givesock.close()
             return "ERROR"
         return "SUCCESS"
@@ -526,9 +529,9 @@ class LocalNode(object):
                     self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key, datetime.timestamp(datetime.utcnow())]
                     response = "SUCCESS"
                 else:
-                    # TODO: Encrypt a message with this key
-                    message_to_encrypt = ""
-                    encrypted_message = ""
+                    # TODO:TEST Encrypt a message with this key
+                    message_to_encrypt = os.random()
+                    encrypted_message = encrypt(message_to_encrypt)
                     self.conns[addr[0] + ":" + str(addr[1])].send(bytes("DECRYPT_" + encrypted_message, "utf-8"))
                     decrypted_message = str(conn.recv(BUFFER_SIZE), "utf-8")
                     if decrypted_message == message_to_encrypt:

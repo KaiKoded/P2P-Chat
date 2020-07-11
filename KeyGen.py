@@ -68,8 +68,8 @@ def openPublicKey():
     return public_key
 
 def encrypt(public_key):
-    print("Enter your message (180 characters max):")
-    message = str(input())
+    #print("Enter your message (180 characters max):")
+    #message = str(input())
     if len(message) > 0 and len(message) < 180:
         #print("Your message:" + message)
         message = message.encode('utf-8')
@@ -81,7 +81,7 @@ def encrypt(public_key):
                 label=None
             )
         )
-        print("Your encrypted message:" + str(encryptedTxT))
+        #print("Your encrypted message:" + str(encryptedTxT))
         return encryptedTxT
     elif len(message) == 0:
         print("The message is empty!")
@@ -101,6 +101,10 @@ def decrypt(private_key, encryptedTxT):
     )
     print("The decrypted message is:")
     return print(original_message)
+
+priv = print(getPrivateKey())
+pub = print(getPublicKey(priv))
+print(openPrivateKey())
 
 '''
 #testing Key generation
