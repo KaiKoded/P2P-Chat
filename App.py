@@ -42,6 +42,7 @@ class App_UI(object):
         print("Waiting for all chats to close")
         thread.join()
         print("chat Main Threads closed")
+        self.gui.destroySubWindow(window_name)
 
         
 def login(button):
@@ -72,9 +73,13 @@ def connect_to_friend(button):
     app.friend_name = app.gui.getEntry("Friend to connect")
     hashed_username = local_node.hash_username(app.friend_name)
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
-    friend_ip, friend_port = local_node.query(hashed_username, (peer_ip, int(peer_port)))
-    print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
-    local_node.start_chat(friend_ip, int(friend_port), app.friend_name)
+    query_response = local_node.query(hashed_username, (peer_ip, int(peer_port)))
+    if query_response == "ERROR":
+        app.gui.warningBox("Wrong Username", "No such User")
+    else:
+        friend_ip, friend_port = query_response 
+        print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
+        local_node.start_chat(friend_ip, int(friend_port), app.friend_name)
 
 
 app = App_UI()
@@ -87,5 +92,6 @@ app.gui.addLabelEntry("EntryPoint")
 
 app.gui.addButtons(["Login", "Cancel"], login)
 app.gui.go()
+app.gui.destroyAllSubWindows()
 if local_node:
     local_node.shutdown()
