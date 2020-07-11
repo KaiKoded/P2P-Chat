@@ -374,6 +374,7 @@ class LocalNode(object):
             conn, addr = chatsock.accept()
             self.app.conn_or_socket = conn
             self.app.connected = True
+            self.app.chat()
         except Exception as msg:
             print(msg)
         return conn
@@ -386,6 +387,7 @@ class LocalNode(object):
             connectsock.connect((remote_ip, remote_port))
             self.app.conn_or_socket = connectsock
             self.app.connected = True
+            self.app.chat()
         except Exception as msg:
             print(msg)
         return connectsock
