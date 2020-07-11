@@ -50,6 +50,9 @@ class LocalNode(object):
         print(f"Eigene Ringposition = {self.ring_position}")
         self.join()
         self.start_daemons()
+        private_key = getPrivateKey()
+        public_key = getPublicKey(private_key)
+
         # self.distribute(self.username)
 
     def hash_username(self, username: str):
