@@ -26,7 +26,7 @@ def listening(app, conn_or_socket):
         except Exception as msg:
             print(msg)
             print("!!!!!!!!!!!!!!!!!")
-            continue
+            break
         # Parse Message    
         message = str(data, "utf-8")
         if message == "EXIT" or message == "":
@@ -78,7 +78,8 @@ def start(app, conn_or_socket):
     sending_thread.start()
     sending_thread.join()
     listening_thread.join()
-    conn_or_socket.close()
+    print("chat Threads closed")
+    #conn_or_socket.close()
     
 
 #start_chat(partner_ip, partner_port)

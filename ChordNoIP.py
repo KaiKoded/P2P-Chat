@@ -17,6 +17,7 @@ class Daemon(threading.Thread):
         threading.Thread.__init__(self)
         self.obj_ = obj
         self.method_ = method
+        self.daemon = True
 
     def run(self):
         getattr(self.obj_, self.method_)()
