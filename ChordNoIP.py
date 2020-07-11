@@ -418,7 +418,7 @@ class LocalNode(object):
             querysock.connect(remote_address)
             querysock.send(bytes(f"QUERY_{k}", "utf-8"))
             response = str(querysock.recv(BUFFER_SIZE), "utf-8").split("_")
-            if response == "ERROR":
+            if response[0] == "ERROR":
                 querysock.close()
                 return "ERROR"
             querysock.close()
