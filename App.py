@@ -64,8 +64,8 @@ def connect_to_friend(button):
     hashed_username = local_node.hash_username(app.friend_name)
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
     friend_ip, friend_port = local_node.query(hashed_username, (peer_ip, int(peer_port)))
-    print("connect_to_friend() : " + friend_ip + str(friend_port))
-    local_node.start_chat(friend_ip, int(friend_port))
+    print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
+    local_node.start_chat(friend_ip, int(friend_port), app.friend_name)
 
 
 app = App_UI()

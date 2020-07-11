@@ -38,9 +38,9 @@ class LocalNode(object):
         # DHT Einträge sind {hash : [IP, Port, Public Key, Timestamp]}
         self.keys = {}
         self.lock = threading.Lock()
-        self.public_key = ""
-        self.private_key = ""
         self.entry_address = entry_address
+        self.private_key = getPrivateKey()
+        self.public_key = str(serializePublicKey(getPublicKey(self.private_key)), "utf-8")
         if self.entry_address != "":
             self.entry_address = self.entry_address.split(":")
             self.entry_address = (":".join(self.entry_address[:-1]), int(self.entry_address[-1]))
@@ -50,10 +50,6 @@ class LocalNode(object):
         print(f"Eigene Ringposition = {self.ring_position}")
         self.join()
         self.start_daemons()
-        private_key = getPrivateKey()
-        public_key = getPublicKey(private_key)
-
-        # self.distribute(self.username)
 
     def hash_username(self, username: str):
         return int(hashlib.sha1(username.encode("utf-8")).hexdigest(), 16) % SIZE
@@ -72,9 +68,10 @@ class LocalNode(object):
         self.daemons['check_predecessor'] = Daemon(self, 'check_predecessor')
         self.daemons['fix_fingers'] = Daemon(self, 'fix_fingers')
         self.daemons['stabilize'] = Daemon(self, 'stabilize')
+        self.daemons['check_distributed_name'] = Daemon(self, 'check_distributed_name')
         for key in self.daemons:
             self.daemons[key].start()
-            print("Daemon " + key + " started.")
+        print("Daemons started.")
 
     def id(self):
         # return hash(self.username) % SIZE
@@ -185,7 +182,7 @@ class LocalNode(object):
                 return response
             except socket.error:
                 self.lock.release()
-                print("succ() : Socket error. Retrying...")
+                print(str(threading.currentThread()) + " : succ() : Socket error. Retrying...")
                 retries += 1
                 time.sleep(3)
             if retries == SUCC_RET:
@@ -327,7 +324,7 @@ class LocalNode(object):
         # print("fix_fingers(): Looking for new fingers.")
 
     def distribute_name(self):
-        username_key = int(hashlib.sha1(self.username.encode("utf-8")).hexdigest(), 16) % SIZE
+        username_key = self.hash_username(self.username)
         print("distribute_name() : Username-Ringposition: " + str(username_key))
         responsible_peer = self.succ(username_key).split("_")
         print("distribute_name() : Verantwortlicher Peer: " + responsible_peer[0] + ":" + str(responsible_peer[1]) + " (" + str(responsible_peer[2]) + ")")
@@ -344,15 +341,16 @@ class LocalNode(object):
         try:
             distsock.connect((responsible_peer[0], int(responsible_peer[1])))
             distsock.settimeout(GLOBAL_TIMEOUT)
-            distsock.send(bytes("DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(self.port) + "_PUBLICKEY_" + self.public_key + "_" + str(self.ring_position), "utf-8"))
-            response = str(distsock.recv(BUFFER_SIZE), "utf-8").split("_")
-            if response[0] == "SUCCESS":
+            message = "DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(self.port) + "_PUBLICKEY_" + self.public_key + "_" + str(self.ring_position)
+            #print("distribute_name() : Sende Nachricht " + message)
+            distsock.send(bytes(message, "utf-8"))
+            response = distsock.recv(BUFFER_SIZE).split(bytes("_", "utf-8"))
+            if str(response[0], "utf-8") == "SUCCESS":
                 return "SUCCESS"
-            if response[0] == "DECRYPT":
-                # TODO: Decrypt message with private key
-                encrypted_message = response[1]
-                decrypted_message = ""
-                distsock.send(bytes(decrypted_message, "utf-8"))
+            if str(response[0], "utf-8") == "DECRYPT":
+                encrypted_message = bytes("_", "utf-8").join(response[1:])
+                decrypted_message = decrypt(self.private_key, encrypted_message)
+                distsock.send(decrypted_message)
                 response = str(distsock.recv(BUFFER_SIZE), "utf-8")
                 if response == "SUCCESS":
                     return "SUCCESS"
@@ -362,13 +360,55 @@ class LocalNode(object):
             print("distribute_name(): Socket Error.")
             return "ERROR"
 
-    def start_chat(self, remote_ip: str, remote_port: int):
+    @repeat_and_sleep(CHECK_DISTRIBUTE_INT)
+    def check_distributed_name(self):
+        username_key = self.hash_username(self.username)
+        if username_key in list(self.keys):
+            #print("check_distributed_name() : Key ist bei sich selbst gespeichert.")
+            return
+        responsible_peer = self.succ(username_key).split("_")
+        if responsible_peer[0] == "ERROR":
+            print("check_distributed_name() : Verantwortlicher Peer ist offenbar ausgefallen. Name wird bei der nächsten Iteration neu gesetzt.")
+            return
+        # Port und Ringposition sind Integers:
+        if (int(responsible_peer[2]) - username_key) % SIZE > (self.ring_position - username_key) % SIZE:
+            print("check_distributed_name() : Key ist beim falschen Peer gespeichert!!!")
+            return
+        distsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            distsock.connect((responsible_peer[0], int(responsible_peer[1])))
+            distsock.settimeout(GLOBAL_TIMEOUT)
+            message = "DISTRIBUTE_" + str(username_key) + "_LISTENING_" + str(self.port) + "_PUBLICKEY_" + self.public_key + "_" + str(self.ring_position)
+            #print("distribute_name() : Sende Nachricht " + message)
+            distsock.send(bytes(message, "utf-8"))
+            response = distsock.recv(BUFFER_SIZE).split(bytes("_", "utf-8"))
+            if str(response[0], "utf-8") == "SUCCESS":
+                print("check_distributed_name() : Key war nicht mehr vorhanden, aber wurde neu gesetzt (sollte eigentlich bei Peer " + responsible_peer[0] + ":" + str(responsible_peer[1]) + " gewesen sein).")
+                return
+            if str(response[0], "utf-8") == "DECRYPT":
+                encrypted_message = bytes("_", "utf-8").join(response[1:])
+                decrypted_message = decrypt(self.private_key, encrypted_message)
+                distsock.send(decrypted_message)
+                response = str(distsock.recv(BUFFER_SIZE), "utf-8")
+                if response == "SUCCESS":
+                    #print("check_distributed_name() : Key ist noch vorhanden und beim richtigen Peer (" + responsible_peer[0] + ":" + str(responsible_peer[1]) + ").")
+                    return
+                if response == "FAILURE":
+                    print("check_distributed_name() : Key kann nicht geändert werden. Möglicherweise ist der verwaltende Peer ausgefallen und jemand anderes hat den Namen angenommen.")
+                    print("check_distributed_name() : Anwendung wird beendet")
+                    self.shutdown()
+                    sys.exit(-1)
+        except socket.error:
+            print("check_distributed_name(): Socket Error.")
+            return "ERROR"
+
+    def start_chat(self, remote_ip: str, remote_port: int, remote_name: str):
         print(f"Starting Chord Chat with {remote_ip}:{remote_port}")
         try:
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
             chatsock.connect((remote_ip, remote_port))
-            chatsock.send(bytes(f"CHAT_{self.port + 1}_{self.ring_position}", "utf-8"))
+            chatsock.send(bytes(f"CHAT_{self.port + 1}_{self.username}", "utf-8"))
             chatsock.close()
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
@@ -377,7 +417,7 @@ class LocalNode(object):
             conn, addr = chatsock.accept()
             self.app.conn_or_socket = conn
             self.app.connected = True
-            self.app.chat()
+            self.app.chat(remote_name)
         except Exception as msg:
             print(msg)
         return conn
@@ -410,6 +450,7 @@ class LocalNode(object):
                 if timedelta.total_seconds(datetime.utcnow() - time_then) < 60 * 60 * 24:
                     print("give_keys(): Übergebe Key " + str(x) + " an " + remote_address[0] + ":" + str(remote_address[1]))
                     givesock.send(bytes("GIVE_" + str(x) + "_" + ip + "_" + port + "_" + public_key + "_" + str(timestamp) + "_" + str(self.ring_position), "utf-8"))
+                    time.sleep(0.1)
                 else:
                     print("give_keys() : Dropping old username of " + ip + ":" + str(port))
                 del self.keys[x]
@@ -486,13 +527,13 @@ class LocalNode(object):
                 # print("Server (succ) : Antworte " + response)
                 if self.successor[2] == self.ring_position:
                     print(
-                        "Server: Setze neuen Successor und Finger, (evtl. weil zuvor alleine im Netzwerk): " + addr[
+                        "notify_successor() : Setze neuen Successor und Finger, (evtl. weil zuvor alleine im Netzwerk): " + addr[
                             0] + ":" + msgsplit[3] + " (" + str(sending_peer_id) + ")")
                     self.successor = [addr[0], int(msgsplit[3]), int(sending_peer_id)]
                     self.fingers[int(sending_peer_id)] = [addr[0], int(msgsplit[3])]
             elif command == "STABILIZE":
                 if self.predecessor == []:
-                    print("Server: Setze neuen Predecessor da zuvor keiner vorhanden: " + addr[0] + ":" + msgsplit[
+                    print("stabilize() : Setze neuen Predecessor da zuvor keiner vorhanden: " + addr[0] + ":" + msgsplit[
                         2] + " (" + str(sending_peer_id) + ")")
                     self.predecessor = [addr[0], int(msgsplit[2]), int(sending_peer_id)]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
@@ -500,7 +541,7 @@ class LocalNode(object):
                 if not self.predecessor or self.predecessor[2] == self.ring_position or \
                         (self.ring_position - int(sending_peer_id)) % SIZE < \
                         (self.ring_position - self.predecessor[2]) % SIZE:
-                    print("Server: Setze neuen Predecessor: " + addr[0] + ":" + msgsplit[1] + " (" + str(
+                    print("stabilize() : Setze neuen Predecessor: " + addr[0] + ":" + msgsplit[1] + " (" + str(
                         sending_peer_id) + ")")
                     self.predecessor = [addr[0], int(msgsplit[1]), int(sending_peer_id)]
             elif command == "FIXFINGERS":
@@ -520,26 +561,36 @@ class LocalNode(object):
                 port = int(msgsplit[3])
                 public_key = msgsplit[4]
                 timestamp = float(msgsplit[5])
-                print("Server : Receiving key on position " + hash_key + " from peer " + sending_peer_id)
+                print("give_keys() : Receiving key on position " + hash_key + " from peer " + sending_peer_id)
                 self.keys[hash_key] = [ip, port, public_key, timestamp]
             elif command == "DISTRIBUTE":
                 remote_hash = msgsplit[1]
                 remote_port = msgsplit[3]
-                remote_public_key = msgsplit[5]
+                #print("distribute_name() : Public key erhalten: " + msgsplit[5])
+                serialized_remote_public_key = msgsplit[5]
+                remote_public_key = unserializePublicKey(bytes(serialized_remote_public_key, "utf-8"))
                 if not remote_hash in list(self.keys):
-                    print("Server : Speichere key mit Position " + remote_hash + ", erhalten von " + sending_peer_id)
-                    self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key, datetime.timestamp(datetime.utcnow())]
+                    print("distribute() : Speichere key mit Position " + remote_hash + ", erhalten von " + sending_peer_id)
+                    self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key, datetime.timestamp(datetime.utcnow())]
                     response = "SUCCESS"
                 else:
-                    # TODO: Encrypt a message with this key
-                    message_to_encrypt = ""
-                    encrypted_message = ""
-                    self.conns[addr[0] + ":" + str(addr[1])].send(bytes("DECRYPT_" + encrypted_message, "utf-8"))
-                    decrypted_message = str(conn.recv(BUFFER_SIZE), "utf-8")
+                    message_to_encrypt = os.urandom(16)
+                    #print("distribute_name() : Nachricht, die encrypted wird: ")
+                    #print(message_to_encrypt)
+                    encrypted_message = encrypt(remote_public_key, message_to_encrypt)
+                    self.conns[addr[0] + ":" + str(addr[1])].send(bytes("DECRYPT_", "utf-8") + encrypted_message)
+                    decrypted_message = conn.recv(BUFFER_SIZE)
+                    #print("distribute_name() : Nachricht von Peer " + sending_peer_id + ": ")
+                    #print(decrypted_message)
                     if decrypted_message == message_to_encrypt:
-                        print("Server : Speichere key mit Position " + remote_hash)
-                        self.keys[remote_hash] = [addr[0], int(remote_port), remote_public_key, datetime.timestamp(datetime.utcnow())]
-                        response = "SUCCESS"
+                        if remote_hash in list(self.keys):
+                            if not self.keys[remote_hash][0:2] == [addr[0], int(remote_port)]:
+                                self.keys[remote_hash][0:2] = [addr[0], int(remote_port)]
+                            response = "SUCCESS"
+                        else:
+                            print("distribute() : Speichere key mit Position " + remote_hash)
+                            self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key, datetime.timestamp(datetime.utcnow())]
+                            response = "SUCCESS"
                     else:
                         response = "FAILURE"
             elif command == "QUERY":
