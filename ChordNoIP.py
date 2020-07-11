@@ -411,6 +411,24 @@ class LocalNode(object):
             return "ERROR"
         return "SUCCESS"
 
+    def query(self, k, remote_address):
+        querysock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        querysock.settimeout(GLOBAL_TIMEOUT)
+        try:
+            querysock.connect(remote_address)
+            querysock.send(bytes(f"QUERY_{k}", "utf-8"))
+            response = str(querysock.recv(BUFFER_SIZE), "utf-8").split("_")
+            if response[0] == "ERROR":
+                querysock.close()
+                return "ERROR"
+            elif response[0] == "":
+                response[0] = querysock.getpeername()[0]
+            querysock.close()
+            return response[0], int(response[1])
+        except socket.error:
+            querysock.close()
+            return "ERROR"
+
     def server(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -513,6 +531,19 @@ class LocalNode(object):
                         response = "SUCCESS"
                     else:
                         response = "FAILURE"
+            elif command == "QUERY":
+                queried_position = int(msgsplit[1])
+                if queried_position in list(self.keys):
+                    time_then = datetime.utcfromtimestamp(self.keys[queried_position][3])
+                    if timedelta.total_seconds(datetime.utcnow() - time_then) < 60 * 60 * 24:
+                        print("query(): Übergebe angefragten Key " + str(queried_position))
+                        response = self.keys[queried_position][0] + "_" + str(self.keys[queried_position][1])
+                    else:
+                        print("query() : Dropping old key " + str(queried_position))
+                        del self.keys[queried_position]
+                        response = "ERROR"
+                else:
+                    response = "ERROR"
             elif command == "CHAT":
                 remote_ip = addr[0]
                 remote_port = int(msgsplit[1])
@@ -528,7 +559,7 @@ class LocalNode(object):
 
 if __name__ == "__main__":
     local = LocalNode()
-    time.sleep(20)
+    #time.sleep(20)
     #local.shutdown()
     # 192.168.178.20:11111
     # ay-test.duckdns.org:11111
