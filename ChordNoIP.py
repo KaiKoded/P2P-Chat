@@ -427,7 +427,7 @@ class LocalNode(object):
             chatsock.close()
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
-            chatsock.bind(("0.0.0.0", self.port + 1))
+            chatsock.bind((remote_ip, self.port + 1))
             chatsock.listen(1)
             conn, addr = chatsock.accept()
             self.app.conn_or_socket = conn
