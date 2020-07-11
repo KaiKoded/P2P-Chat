@@ -172,7 +172,10 @@ class LocalNode(object):
                 # print("Mein Successor: " + str(self.successor))
                 # print("Meine Finger:")
                 # print(list(self.fingers.values()))
-                response = str(self.succsock.recv(BUFFER_SIZE), "utf-8")
+                response = str(self.succsock.recv(BUFFER_SIZE), "utf-8").split("_")
+                if response[0] == "":
+                    response[0] = address_to_connect_to[0]
+                response = "_".join(response)
                 # print("succ(): Antwort erhalten.")
                 self.succsock.close()
                 self.lock.release()
@@ -368,7 +371,7 @@ class LocalNode(object):
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
             chatsock.connect((remote_ip, remote_port))
-            chatsock.send(bytes(f"CHAT_{self.port + 1}", "utf-8"))
+            chatsock.send(bytes(f"CHAT_{self.port + 1}_{self.ring_position}", "utf-8"))
             chatsock.close()
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
@@ -382,7 +385,7 @@ class LocalNode(object):
             print(msg)
         return conn
 
-    def connect_chat(self, remote_ip: str, remote_port: int):
+    def connect_chat(self, remote_ip: str, remote_port: int, remote_name: str):
         print(f"Incoming chat from {remote_ip}:{remote_port}")
         try:
             connectsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -390,7 +393,7 @@ class LocalNode(object):
             connectsock.connect((remote_ip, remote_port))
             self.app.conn_or_socket = connectsock
             self.app.connected = True
-            self.app.chat()
+            self.app.chat(remote_name)
         except Exception as msg:
             print(msg)
         return connectsock
@@ -421,6 +424,7 @@ class LocalNode(object):
         return "SUCCESS"
 
     def query(self, k, remote_address):
+        print(f"query() : Frage Key {k} bei Peer {remote_address} an.")
         querysock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         querysock.settimeout(GLOBAL_TIMEOUT)
         try:
@@ -431,10 +435,11 @@ class LocalNode(object):
                 querysock.close()
                 return "ERROR"
             elif response[0] == "":
-                response[0] = querysock.getpeername()[0]
+                response[0] = remote_address[0]
             querysock.close()
             return response[0], int(response[1])
         except socket.error:
+            print("query(): Socket error")
             querysock.close()
             return "ERROR"
 
@@ -552,11 +557,13 @@ class LocalNode(object):
                         del self.keys[queried_position]
                         response = "ERROR"
                 else:
+                    print("query(): Angefragter Key nicht vorhanden.")
                     response = "ERROR"
             elif command == "CHAT":
                 remote_ip = addr[0]
                 remote_port = int(msgsplit[1])
-                chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port))
+                remote_name = msgsplit[2]
+                chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port, remote_name))
                 chat_thread.start()
                 break
 
