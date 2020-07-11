@@ -1,6 +1,6 @@
 from appJar import gui
 import Chat
-import Chord
+import ChordNoIP
 import socket
 import time
 import threading
@@ -49,7 +49,7 @@ def connect_to_overlay(app):
     app.gui.stop()
 
     global local_node
-    local_node = Chord.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
+    local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
     app.gui = gui("Peer2Peer Chat", "800x400")
     app.gui.addLabelEntry("Friend to connect")
@@ -78,7 +78,7 @@ def wait_for_friend():
 
 
 app = App_UI()
-local_node: Chord.LocalNode = {}
+local_node = {}
 
 app.gui.addLabel("title", "P2P Chat")
 app.gui.addLabelEntry("Username")
