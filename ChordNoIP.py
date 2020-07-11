@@ -431,6 +431,7 @@ class LocalNode(object):
             chatsock.listen(1)
             conn, addr = chatsock.accept()
             self.app.conn_or_socket = conn
+            self.app.socket = chatsock
             self.app.connected = True
             self.app.chat(remote_name)
         except Exception as msg:

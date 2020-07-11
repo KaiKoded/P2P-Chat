@@ -17,6 +17,7 @@ class App_UI(object):
     connected = False
     conn_or_socket = {}
     threads = []
+    socket = {}
 
     def read_message(self, friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
@@ -43,6 +44,9 @@ class App_UI(object):
         thread.join()
         print("chat Main Threads closed")
         self.gui.destroySubWindow(window_name)
+        if self.socket:
+            self.socket.close()
+            self.socket = {}
 
         
 def login(button):
@@ -90,7 +94,7 @@ app.gui.addLabelEntry("Username")
 app.gui.addLabelEntry("Port")
 app.gui.addLabelEntry("EntryPoint")
 
-app.gui.addButtons(["Login", "Cancel"], login)
+app.gui.addButtons(["Login"], login)
 app.gui.go()
 app.gui.destroyAllSubWindows()
 if local_node:
