@@ -5,7 +5,7 @@ m = 20
 SIZE = 2**m
 
 
-BUFFER_SIZE = 256
+BUFFER_SIZE = 2048
 # INT = interval in seconds
 # RET = retry limit
 
@@ -25,3 +25,6 @@ CHECK_PREDECESSOR_RET = 3
 
 # Succ
 SUCC_RET = 3
+
+# Check Name Distribution
+CHECK_DISTRIBUTE_INT = 30
