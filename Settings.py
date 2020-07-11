@@ -3,7 +3,7 @@
 # log size of the ring
 m = 20
 SIZE = 2**m
-
+KEY_LIFESPAN = 60 * 60 * 24
 
 BUFFER_SIZE = 2048
 # INT = interval in seconds

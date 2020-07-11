@@ -105,7 +105,7 @@ class LocalNode(object):
         if succinfo[0] == "ERROR":
             print("Entry-Adresse nicht erreichbar. Programm wird beendet.")
             self.shutdown()
-            sys.exit(-1)
+            sys.exit(0)
         if not succinfo[0]:
             succinfo[0] = self.entry_address[0]
         self.successor = [succinfo[0], int(succinfo[1]), int(succinfo[2])]
@@ -132,7 +132,7 @@ class LocalNode(object):
                     self.fingers[int(info[2])] = [info[0], int(info[1])]
         distribute_status = self.distribute_name()
         if distribute_status == "ERROR":
-            sys.exit(-1)
+            sys.exit(0)
         print("Join finished.")
 
     # @retry_on_socket_error(SUCC_RET)
@@ -409,7 +409,7 @@ class LocalNode(object):
                     print("check_distributed_name() : Key kann nicht geändert werden. Möglicherweise ist der verwaltende Peer ausgefallen und jemand anderes hat den Namen angenommen.")
                     print("check_distributed_name() : Anwendung wird beendet")
                     self.shutdown()
-                    sys.exit(-1)
+                    sys.exit(0)
         except socket.error:
             print("check_distributed_name(): Socket Error.")
             return "ERROR"
@@ -459,7 +459,7 @@ class LocalNode(object):
                 public_key = self.keys[x][2]
                 timestamp = self.keys[x][3]
                 time_then = datetime.utcfromtimestamp(timestamp)
-                if timedelta.total_seconds(datetime.utcnow() - time_then) < 60 * 60 * 24:
+                if timedelta.total_seconds(datetime.utcnow() - time_then) < KEY_LIFESPAN:
                     print("give_keys(): Übergebe Key " + str(x) + " an " + remote_address[0] + ":" + str(remote_address[1]))
                     givesock.send(bytes("GIVE_" + str(x) + "_" + ip + "_" + port + "_" + public_key + "_" + str(timestamp) + "_" + str(self.ring_position), "utf-8"))
                     time.sleep(0.1)
@@ -608,7 +608,7 @@ class LocalNode(object):
                 queried_position = int(msgsplit[1])
                 if queried_position in list(self.keys):
                     time_then = datetime.utcfromtimestamp(self.keys[queried_position][3])
-                    if timedelta.total_seconds(datetime.utcnow() - time_then) < 60 * 60 * 24:
+                    if timedelta.total_seconds(datetime.utcnow() - time_then) < KEY_LIFESPAN:
                         print("query(): Übergebe angefragten Key " + str(queried_position))
                         response = self.keys[queried_position][0] + "_" + str(self.keys[queried_position][1])
                     else:
