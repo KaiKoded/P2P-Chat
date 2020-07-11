@@ -24,9 +24,10 @@ class App_UI(object):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
         self.gui.setMessage("chat_output", self.app.chat_content)
 
-    def chat(self):
+    def chat(self, remote_name):
+        self.friend_name = remote_name
         print(f"Starting chat")
-        thread=threading.Thread(target=Chat.start, args=(self, self.conn_or_socket))
+        thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket))
         thread.start()
         window_name = f"Chat with {self.friend_name}"
         self.gui.startSubWindow(window_name, transient=True)
@@ -62,8 +63,8 @@ def connect_to_friend(button):
     app.friend_name = app.gui.getEntry("Friend to connect")
     hashed_username = local_node.hash_username(app.friend_name)
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
-    print(local_node.query(hashed_username, (peer_ip, int(peer_port))))
     friend_ip, friend_port = local_node.query(hashed_username, (peer_ip, int(peer_port)))
+    print("connect_to_friend() : " + friend_ip + str(friend_port))
     local_node.start_chat(friend_ip, int(friend_port))
 
 
