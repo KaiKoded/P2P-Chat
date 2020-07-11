@@ -16,6 +16,7 @@ class App_UI(object):
     friend_name = ""
     connected = False
     conn_or_socket = {}
+    threads = []
 
     def read_message(self, friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
@@ -35,7 +36,12 @@ class App_UI(object):
         self.gui.stopLabelFrame()
         self.gui.stopSubWindow()
         self.gui.showSubWindow(window_name)
+        print("Chat closed")
         self.connected = False
+        self.conn_or_socket.close()
+        print("Waiting for all chats to close")
+        thread.join()
+        print("chat Main Threads closed")
 
         
 def login(button):
@@ -43,6 +49,9 @@ def login(button):
     app.username = app.gui.getEntry("Username")
     app.port = int(app.gui.getEntry("Port"))
     app.entry_address = app.gui.getEntry("EntryPoint")
+    if len(app.entry_address) != 0 and len(app.entry_address.split(":")) < 2:
+        app.entry_address = f"127.0.0.1:{app.entry_address}"
+        print(f"Entry Adress: {app.entry_address}")
     connect_to_overlay(app)
         
 def connect_to_overlay(app):

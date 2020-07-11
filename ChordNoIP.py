@@ -17,6 +17,7 @@ class Daemon(threading.Thread):
         threading.Thread.__init__(self)
         self.obj_ = obj
         self.method_ = method
+        self.daemon = True
 
     def run(self):
         getattr(self.obj_, self.method_)()
@@ -82,6 +83,7 @@ class LocalNode(object):
         self.daemons['stabilize'] = Daemon(self, 'stabilize')
         self.daemons['check_distributed_name'] = Daemon(self, 'check_distributed_name')
         for key in self.daemons:
+            self.daemons[key].daemon = True
             self.daemons[key].start()
         print("Daemons started.")
 
@@ -565,14 +567,14 @@ class LocalNode(object):
                 self.predecessor = [addr[0], int(msgsplit[2]), int(sending_peer_id)]
                 self.give_keys((addr[0], int(msgsplit[2])), int(sending_peer_id))
             elif command == "GIVE":
-                hash_key = msgsplit[1]
+                hash_key = int(msgsplit[1])
                 ip = msgsplit[2]
                 if ip == "":
                     ip = addr[0]
                 port = int(msgsplit[3])
                 public_key = msgsplit[4]
                 timestamp = float(msgsplit[5])
-                print("give_keys() : Receiving key on position " + hash_key + " from peer " + sending_peer_id)
+                print("give_keys() : Receiving key on position " + str(hash_key) + " from peer " + sending_peer_id)
                 self.keys[hash_key] = [ip, port, public_key, timestamp]
             elif command == "DISTRIBUTE":
                 remote_hash = msgsplit[1]
