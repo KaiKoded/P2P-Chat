@@ -57,20 +57,21 @@ class LocalNode(object):
     def shutdown(self):
         self.shutdown_ = True
         print("shutdown() : Initiating shutdown.")
-        try:
-            to_successor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            to_successor.settimeout(GLOBAL_TIMEOUT)
-            to_successor.connect((self.successor[0], self.successor[1]))
-            to_successor.send(bytes("SHUTDOWN_PREDECESSOR:_" + self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2]), "utf-8"))
-            to_successor.close()
-            to_predecessor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            to_predecessor.settimeout(GLOBAL_TIMEOUT)
-            to_predecessor.connect((self.predecessor[0], self.predecessor[1]))
-            to_predecessor.send(bytes("SHUTDOWN_SUCCESSOR:_" + self.successor[0] + "_" + str(self.successor[1]) + "_" + str(self.successor[2]), "utf-8"))
-            to_predecessor.close()
-        except socket.error:
-            print("shutdown() : Fehler beim Senden der Successor- oder Predecessor-Informationen.")
-        self.give_keys((self.successor[0], self.successor[1]), self.ring_position)
+        if not self.successor[0] == "":
+            try:
+                to_successor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                to_successor.settimeout(GLOBAL_TIMEOUT)
+                to_successor.connect((self.successor[0], self.successor[1]))
+                to_successor.send(bytes("SHUTDOWN_PREDECESSOR:_" + self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2]), "utf-8"))
+                to_successor.close()
+                to_predecessor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                to_predecessor.settimeout(GLOBAL_TIMEOUT)
+                to_predecessor.connect((self.predecessor[0], self.predecessor[1]))
+                to_predecessor.send(bytes("SHUTDOWN_SUCCESSOR:_" + self.successor[0] + "_" + str(self.successor[1]) + "_" + str(self.successor[2]), "utf-8"))
+                to_predecessor.close()
+            except socket.error:
+                print("shutdown() : Fehler beim Senden der Successor- oder Predecessor-Informationen.")
+            self.give_keys((self.successor[0], self.successor[1]), self.ring_position)
         for connection in list(self.conns):
             self.conns[connection].close()
         sys.exit(0)
@@ -82,6 +83,7 @@ class LocalNode(object):
         self.daemons['stabilize'] = Daemon(self, 'stabilize')
         self.daemons['check_distributed_name'] = Daemon(self, 'check_distributed_name')
         for key in self.daemons:
+            self.daemons[key].daemon = True
             self.daemons[key].start()
         print("Daemons started.")
 
@@ -565,14 +567,14 @@ class LocalNode(object):
                 self.predecessor = [addr[0], int(msgsplit[2]), int(sending_peer_id)]
                 self.give_keys((addr[0], int(msgsplit[2])), int(sending_peer_id))
             elif command == "GIVE":
-                hash_key = msgsplit[1]
+                hash_key = int(msgsplit[1])
                 ip = msgsplit[2]
                 if ip == "":
                     ip = addr[0]
                 port = int(msgsplit[3])
                 public_key = msgsplit[4]
                 timestamp = float(msgsplit[5])
-                print("give_keys() : Receiving key on position " + hash_key + " from peer " + sending_peer_id)
+                print("give_keys() : Receiving key on position " + str(hash_key) + " from peer " + sending_peer_id)
                 self.keys[hash_key] = [ip, port, public_key, timestamp]
             elif command == "DISTRIBUTE":
                 remote_hash = msgsplit[1]
