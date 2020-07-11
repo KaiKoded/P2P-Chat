@@ -94,7 +94,7 @@ app.gui.addLabelEntry("Username")
 app.gui.addLabelEntry("Port")
 app.gui.addLabelEntry("EntryPoint")
 
-app.gui.addButtons(["Login", "Cancel"], login)
+app.gui.addButtons(["Login"], login)
 app.gui.go()
 app.gui.destroyAllSubWindows()
 if local_node:
