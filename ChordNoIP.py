@@ -421,6 +421,8 @@ class LocalNode(object):
             if response[0] == "ERROR":
                 querysock.close()
                 return "ERROR"
+            elif response[0] == "":
+                response[0] = querysock.getpeername()[0]
             querysock.close()
             return response[0], int(response[1])
         except socket.error:
