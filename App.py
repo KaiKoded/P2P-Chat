@@ -17,9 +17,6 @@ class App_UI(object):
     connected = False
     conn_or_socket = {}
 
-    def __init__(self):
-        super().__init__()
-        
     def read_message(self, friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
         self.gui.setMessage("chat_output", self.chat_content)
@@ -27,7 +24,7 @@ class App_UI(object):
     def chat(self, remote_name):
         self.friend_name = remote_name
         print(f"Starting chat")
-        thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket))
+        thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
         thread.start()
         window_name = f"Chat with {self.friend_name}"
         self.gui.startSubWindow(window_name, transient=True, blocking=True)
@@ -58,6 +55,7 @@ def connect_to_overlay(app):
     app.gui.addLabelEntry("Friend to connect")
     app.gui.addButtons(["Connect"], connect_to_friend)
     app.gui.go()
+
 
 def connect_to_friend(button):
     global app

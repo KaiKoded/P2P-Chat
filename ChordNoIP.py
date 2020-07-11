@@ -73,7 +73,7 @@ class LocalNode(object):
         self.give_keys((self.successor[0], self.successor[1]), self.ring_position)
         for connection in list(self.conns):
             self.conns[connection].close()
-        sys.exit(-1)
+        sys.exit(0)
 
     def start_daemons(self):
         self.daemons['server'] = Daemon(self, 'server')
@@ -505,8 +505,7 @@ class LocalNode(object):
             conn, addr = self.sock.accept()
             self.conns[addr[0] + ":" + str(addr[1])] = conn
             # print(addr[0] + ":" + str(addr[1]) + " connected.")
-            cthread = threading.Thread(target=self.client_thread, args=(conn, addr))
-            cthread.daemon = True
+            cthread = threading.Thread(target=self.client_thread, args=(conn, addr), daemon=True)
             cthread.start()
             self.threads[addr[0] + ":" + str(addr[1])] = cthread
 
@@ -623,7 +622,7 @@ class LocalNode(object):
                 remote_ip = addr[0]
                 remote_port = int(msgsplit[1])
                 remote_name = msgsplit[2]
-                chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port, remote_name))
+                chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port, remote_name), daemon=True)
                 chat_thread.start()
                 break
             elif command == "SHUTDOWN":
