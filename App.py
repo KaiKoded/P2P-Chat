@@ -20,9 +20,9 @@ class App_UI(object):
     def __init__(self):
         super().__init__()
         
-    def read_message(self,friend_name: str, message: str):
+    def read_message(self, friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
-        self.gui.setMessage("chat_output", self.app.chat_content)
+        self.gui.setMessage("chat_output", self.chat_content)
 
     def chat(self, remote_name):
         self.friend_name = remote_name
@@ -30,7 +30,7 @@ class App_UI(object):
         thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket))
         thread.start()
         window_name = f"Chat with {self.friend_name}"
-        self.gui.startSubWindow(window_name, transient=True)
+        self.gui.startSubWindow(window_name, transient=True, blocking=True)
         self.gui.startLabelFrame("Chat")
         self.gui.addEmptyMessage("chat_output")
         self.gui.addEntry("chat_input")
@@ -38,6 +38,8 @@ class App_UI(object):
         self.gui.stopLabelFrame()
         self.gui.stopSubWindow()
         self.gui.showSubWindow(window_name)
+        self.connected = False
+
         
 def login(button):
     global app
@@ -78,3 +80,4 @@ app.gui.addLabelEntry("EntryPoint")
 
 app.gui.addButtons(["Login", "Cancel"], login)
 app.gui.go()
+local_node.shutdown()
