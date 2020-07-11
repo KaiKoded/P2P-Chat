@@ -3,3 +3,5 @@ p2p-chat.code-workspace
 /venv/
 /Websitesammlung/
 *.pyc
+private_key.pem
+public_key.pem

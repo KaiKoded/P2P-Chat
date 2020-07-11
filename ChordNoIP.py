@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 
 from HelperFunctions import *
 from Settings import *
-from KeyGen import *
 
 class Daemon(threading.Thread):
     def __init__(self, obj, method):
@@ -23,9 +22,11 @@ class Daemon(threading.Thread):
 
 
 class LocalNode(object):
-    def __init__(self):
+    def __init__(self, app, port: int, entry_address: str, username: str):
+        self.app = app
+
         # Eigene Adresse ist [IP, Port, Position]
-        self.port = int(input("Bitte Port zum Zuhören wählen: "))
+        self.port = port
         self.shutdown_ = False
         self.daemons = {}
         # Predecessor und Successor sind [IP, Port, Position]
@@ -38,11 +39,11 @@ class LocalNode(object):
         self.lock = threading.Lock()
         self.public_key = ""
         self.private_key = ""
-        self.entry_address = input("Bitte Entry-Point-ID angeben (wenn leer, dann wird neue DHT erstellt): ")
+        self.entry_address = entry_address
         if self.entry_address != "":
             self.entry_address = self.entry_address.split(":")
             self.entry_address = (":".join(self.entry_address[:-1]), int(self.entry_address[-1]))
-        self.username = input("Bitte Username wählen: ")
+        self.username = username
         self.ring_position = self.id()
         print(f"Eigener Port = {self.port}")
         print(f"Eigene Ringposition = {self.ring_position}")
@@ -355,6 +356,7 @@ class LocalNode(object):
             return "ERROR"
 
     def start_chat(self, remote_ip: str, remote_port: int):
+        print(f"Starting Chord Chat with {remote_ip}:{remote_port}")
         try:
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
