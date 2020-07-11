@@ -32,7 +32,7 @@ def listening(app, conn_or_socket):
         if message == "EXIT" or message == "":
             conn_or_socket.close()
             print("Partner disconnected.")
-        app.chat_content = app.chat_content + "\n" + f"{app.username} says: {message}"
+        app.chat_content = app.chat_content + "\n" + f"{app.friend_name} says: {message}"
         app.gui.setMessage("chat_output", app.chat_content)
         print(f"Partner says: {message}")
 

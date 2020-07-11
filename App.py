@@ -84,7 +84,7 @@ def connect_to_friend(button):
     else:
         friend_ip, friend_port = query_response 
         print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
-        local_node.start_chat(friend_ip, int(friend_port), app.friend_name)
+        local_node.start_chat(friend_ip, int(friend_port))
 
 
 app = App_UI()

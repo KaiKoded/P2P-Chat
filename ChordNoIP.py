@@ -417,7 +417,7 @@ class LocalNode(object):
             print("check_distributed_name(): Socket Error.")
             return "ERROR"
 
-    def start_chat(self, remote_ip: str, remote_port: int, remote_name: str):
+    def start_chat(self, remote_ip: str, remote_port: int):
         print(f"Starting Chord Chat with {remote_ip}:{remote_port}")
         try:
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -433,7 +433,7 @@ class LocalNode(object):
             self.app.conn_or_socket = conn
             self.app.socket = chatsock
             self.app.connected = True
-            self.app.chat(remote_name)
+            self.app.chat(self.app.friend_name)
         except Exception as msg:
             print(msg)
         return conn
@@ -446,6 +446,7 @@ class LocalNode(object):
             connectsock.connect((remote_ip, remote_port))
             self.app.conn_or_socket = connectsock
             self.app.connected = True
+            self.app.friend_name = remote_name
             self.app.chat(remote_name)
         except Exception as msg:
             print(msg)
