@@ -80,4 +80,5 @@ app.gui.addLabelEntry("EntryPoint")
 
 app.gui.addButtons(["Login", "Cancel"], login)
 app.gui.go()
-local_node.shutdown()
+if local_node:
+    local_node.shutdown()
