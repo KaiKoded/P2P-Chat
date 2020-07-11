@@ -578,13 +578,13 @@ class LocalNode(object):
                 print("give_keys() : Receiving key on position " + str(hash_key) + " from peer " + sending_peer_id)
                 self.keys[hash_key] = [ip, port, public_key, timestamp]
             elif command == "DISTRIBUTE":
-                remote_hash = msgsplit[1]
+                remote_hash = int(msgsplit[1])
                 remote_port = msgsplit[3]
                 #print("distribute_name() : Public key erhalten: " + msgsplit[5])
                 serialized_remote_public_key = msgsplit[5]
                 remote_public_key = unserializePublicKey(bytes(serialized_remote_public_key, "utf-8"))
                 if not remote_hash in list(self.keys):
-                    print("distribute() : Speichere key mit Position " + remote_hash + ", erhalten von " + sending_peer_id)
+                    print("distribute() : Speichere key mit Position " + str(remote_hash) + ", erhalten von " + sending_peer_id)
                     self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key, datetime.timestamp(datetime.utcnow())]
                     response = "SUCCESS"
                 else:
@@ -602,7 +602,7 @@ class LocalNode(object):
                                 self.keys[remote_hash][0:2] = [addr[0], int(remote_port)]
                             response = "SUCCESS"
                         else:
-                            print("distribute() : Speichere key mit Position " + remote_hash)
+                            print("distribute() : Speichere key mit Position " + str(remote_hash))
                             self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key, datetime.timestamp(datetime.utcnow())]
                             response = "SUCCESS"
                     else:
