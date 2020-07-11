@@ -6,7 +6,7 @@ import time
 import threading
 
 class App_UI(object):
-    gui = gui("Threading Chord", "800x400")
+    gui = gui("Threading Chord")
     chat_content = ""
     input_ready = False
     port = 11111
@@ -25,14 +25,14 @@ class App_UI(object):
         print(f"Starting chat")
         thread=threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
         thread.start()
-        app.gui.stop()
-        app.gui = gui("Threading Chord Chat", "800x400")
-        app.gui.startLabelFrame("Chat")
-        app.gui.addEmptyMessage("chat_output")
-        app.gui.addEntry("chat_input")
-        app.gui.addButtons(["Send", "Quit"], Chat.chat_button)
-        app.gui.stopLabelFrame()
-        app.gui.go()
+        self.gui.stop()
+        self.gui = gui(f"{self.username} chats with {self.friend_name}")
+        self.gui.startLabelFrame("Chat")
+        self.gui.addEmptyMessage("chat_output")
+        self.gui.addEntry("chat_input")
+        self.gui.addButtons(["Send", "Quit"], Chat.chat_button)
+        self.gui.stopLabelFrame()
+        self.gui.go()
 
     
 def login(button):
@@ -51,7 +51,7 @@ def connect_to_overlay(app):
     global local_node
     local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
-    app.gui = gui("Peer2Peer Chat", "800x400")
+    app.gui = gui(f"{app.username} Chat")
     app.gui.addLabelEntry("Friend to connect")
     app.gui.addButtons(["Connect", "Wait"], connect_to_friend)
     app.gui.go()
