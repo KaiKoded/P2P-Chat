@@ -427,10 +427,11 @@ class LocalNode(object):
             chatsock.close()
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
-            chatsock.bind((remote_ip, self.port + 1))
+            chatsock.bind(("0.0.0.0", self.port + 1))
             chatsock.listen(1)
             conn, addr = chatsock.accept()
             self.app.conn_or_socket = conn
+            self.app.socket = chatsock
             self.app.connected = True
             self.app.chat(remote_name)
         except Exception as msg:
