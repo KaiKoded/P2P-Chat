@@ -109,15 +109,15 @@ class LocalNode(object):
         if not succinfo[0]:
             succinfo[0] = self.entry_address[0]
         self.successor = [succinfo[0], int(succinfo[1]), int(succinfo[2])]
-        print("join () : Gebe successor bescheid")
+        print("join() : Gebe successor bescheid")
         self.notify_successor()
-        self.fingers[int(self.successor[2])] = [self.successor[0], self.successor[1]]
-        print("Successor " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
+        print("join() : Successor " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
-        print("Looking for fingers")
-        print("Finger " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
+        print("join() : Looking for fingers")
+        print("join() : Finger " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
+        self.fingers[self.successor[2]] = [self.successor[0], self.successor[1]]
         found = self.successor[2]
         for finger in finger_positions:
             if (finger - self.ring_position) % SIZE > (found - self.ring_position) % SIZE:
@@ -127,9 +127,9 @@ class LocalNode(object):
                 if info[0] == "ERROR":
                     continue
                 found = int(info[2])
-                if not int(info[2]) == self.ring_position:
-                    print("Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
-                    self.fingers[int(info[2])] = [info[0], int(info[1])]
+                if not found == self.ring_position and found not in list(self.fingers):
+                    print("join() : Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
+                    self.fingers[found] = [info[0], int(info[1])]
         distribute_status = self.distribute_name()
         if distribute_status == "ERROR":
             sys.exit(0)
