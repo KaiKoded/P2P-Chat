@@ -43,7 +43,7 @@ class App_UI(object):
         print("Waiting for all chats to close")
         thread.join()
         print("chat Main Threads closed")
-        self.gui.destroySubWindow(window_name)
+        self.gui.destroyAllSubWindows()
         if self.socket:
             self.socket.close()
             self.socket = {}
