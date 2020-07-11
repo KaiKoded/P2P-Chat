@@ -47,6 +47,7 @@ class App_UI(object):
         if self.socket:
             self.socket.close()
             self.socket = {}
+        self.chat_content = ""
 
         
 def login(button):
