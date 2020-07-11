@@ -17,33 +17,33 @@ class App_UI(object):
     connected = False
     conn_or_socket = {}
 
+    def __init__(self):
+        super().__init__()
+        
     def read_message(self,friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
         self.gui.setMessage("chat_output", self.app.chat_content)
 
     def chat(self):
         print(f"Starting chat")
-        thread=threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
+        thread=threading.Thread(target=Chat.start, args=(self, self.conn_or_socket))
         thread.start()
-        self.gui.stop()
-        self.gui = gui(f"{self.username} chats with {self.friend_name}")
+        window_name = f"Chat with {self.friend_name}"
+        self.gui.startSubWindow(window_name, transient=True)
         self.gui.startLabelFrame("Chat")
         self.gui.addEmptyMessage("chat_output")
         self.gui.addEntry("chat_input")
-        self.gui.addButtons(["Send", "Quit"], Chat.chat_button)
+        self.gui.addButtons(["Send"], Chat.chat_button)
         self.gui.stopLabelFrame()
-        self.gui.go()
-
-    
+        self.gui.stopSubWindow()
+        self.gui.showSubWindow(window_name)
+        
 def login(button):
     global app
-    if button == "Cancel":
-        app.gui.stop()
-    else:
-        app.username = app.gui.getEntry("Username")
-        app.port = int(app.gui.getEntry("Port"))
-        app.entry_address = app.gui.getEntry("EntryPoint")
-        connect_to_overlay(app)
+    app.username = app.gui.getEntry("Username")
+    app.port = int(app.gui.getEntry("Port"))
+    app.entry_address = app.gui.getEntry("EntryPoint")
+    connect_to_overlay(app)
         
 def connect_to_overlay(app):
     app.gui.stop()
@@ -53,28 +53,18 @@ def connect_to_overlay(app):
 
     app.gui = gui(f"{app.username} Chat")
     app.gui.addLabelEntry("Friend to connect")
-    app.gui.addButtons(["Connect", "Wait"], connect_to_friend)
+    app.gui.addButtons(["Connect"], connect_to_friend)
     app.gui.go()
 
 def connect_to_friend(button):
     global app
     global local_node
-    if button == "Wait":
-        wait_for_friend()
-    else:
-        app.friend_name = app.gui.getEntry("Friend to connect")
-        friend_ip, friend_port, ring_pos = local_node.succ(local_node.hash_username(app.friend_name)).split("_")
-        local_node.start_chat(friend_ip, int(friend_port))
-        app.chat()
-    
-def wait_for_friend():
-    global app
-    #app.gui.stop()
-    print("Waiting for friend")
-    while True:
-        if app.connected:
-            app.chat()
-            break
+    app.friend_name = app.gui.getEntry("Friend to connect")
+    hashed_username = local_node.hash_username(app.friend_name)
+    peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
+    print(local_node.query(hashed_username, (peer_ip, int(peer_port))))
+    friend_ip, friend_port = local_node.query(hashed_username, (peer_ip, int(peer_port)))
+    local_node.start_chat(friend_ip, int(friend_port))
 
 
 app = App_UI()
