@@ -57,9 +57,21 @@ class LocalNode(object):
         return int(hashlib.sha1(username.encode("utf-8")).hexdigest(), 16) % SIZE
 
     def shutdown(self):
-        # TODO: Meinem Successor meinen Predecessor schicken & meinem Predecessor meinen Successor schicken
         self.shutdown_ = True
         print("shutdown() : Initiating shutdown.")
+        try:
+            to_successor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            to_successor.settimeout(GLOBAL_TIMEOUT)
+            to_successor.connect((self.successor[0], self.successor[1]))
+            to_successor.send(bytes("SHUTDOWN_PREDECESSOR:_" + self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2]), "utf-8"))
+            to_successor.close()
+            to_predecessor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            to_predecessor.settimeout(GLOBAL_TIMEOUT)
+            to_predecessor.connect((self.predecessor[0], self.predecessor[1]))
+            to_predecessor.send(bytes("SHUTDOWN_SUCCESSOR:_" + self.successor[0] + "_" + str(self.successor[1]) + "_" + str(self.successor[2]), "utf-8"))
+            to_predecessor.close()
+        except socket.error:
+            print("shutdown() : Fehler beim Senden der Successor- oder Predecessor-Informationen.")
         self.give_keys((self.successor[0], self.successor[1]), self.ring_position)
         for connection in list(self.conns):
             self.conns[connection].close()
@@ -559,7 +571,13 @@ class LocalNode(object):
                 chat_thread = threading.Thread(target=self.connect_chat, args=(remote_ip, remote_port))
                 chat_thread.start()
                 break
-
+            elif command == "SHUTDOWN":
+                if msgsplit[1] == "SUCCESSOR:":
+                    print("shutdown() : Setze neuen Successor: " + msgsplit[2] + ":" + msgsplit[3] + " (" + msgsplit[4] + ")")
+                    self.successor = [msgsplit[2], int(msgsplit[3]), int(msgsplit[4])]
+                elif msgsplit[1] == "PREDECESSOR:":
+                    print("shutdown() : Setze neuen Predecessor: " + msgsplit[2] + ":" + msgsplit[3] + " (" + msgsplit[4] + ")")
+                    self.predecessor = [msgsplit[2], int(msgsplit[3]), int(msgsplit[4])]
 
             if response != "":
                 #print("Sending response: " + response)

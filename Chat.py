@@ -17,7 +17,7 @@ def listening(app, conn_or_socket):
     """Listens to incoming Messages from Partner."""
     time.sleep(1)
     conn_or_socket.settimeout(None)
-    while True:
+    while app.connected:
         if app.quit:
             break
         try:
@@ -40,7 +40,7 @@ def sending(app, conn_or_socket):
     """Sends Messages to Partner."""
     # Send Messages
     time.sleep(1)
-    while True:
+    while app.connected:
         if app.quit:
             break
         if app.input_ready:
@@ -63,8 +63,6 @@ def chat_button(button):
     global g_app
     if button == "Quit":
         g_app.quit = True
-        time.sleep(1)
-        g_app.gui.stop()
     else:
         g_app.input_ready = True
 
