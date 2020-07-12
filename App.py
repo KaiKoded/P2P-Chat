@@ -10,7 +10,7 @@ class App_UI(object):
     gui = gui("Threading Chord")
     gui.setTitle("P2P Chat Ultimate")
     #gui.setBg("lightGrey")
-    gui.setFont(16)
+    gui.setFont(14)
     chat_content = ""
     input_ready = False
     port = 11111
@@ -22,9 +22,10 @@ class App_UI(object):
     conn_or_socket = {}
     threads = []
     socket = {}
-    friend_list = ["-- Freunde --"]
+    friend_list = ["-- Friends --"]
     window_name = ""
     gui.setGuiPadding(3)
+
 
     def __init__(self):
         super().__init__()
@@ -43,7 +44,7 @@ class App_UI(object):
         #print(f"Chat wird gestartet.")
         thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
         thread.start()
-        window_name = f"Chat mit {self.friend_name}"
+        window_name = f"Chat with {self.friend_name}"
         self.window_name = window_name
         self.gui.startSubWindow(window_name, transient=True, blocking=True)
         self.gui.startLabelFrame("Chat")
@@ -55,7 +56,7 @@ class App_UI(object):
         self.gui.showSubWindow(window_name)
         self.window_name = ""
         self.gui.destroyAllSubWindows()
-        print("Chat beendet.")
+        print("Chat closed.")
         self.connected = False
         self.conn_or_socket.close()
         #print("Warte darauf, dass alle Chats geschlossen werden.")
@@ -67,9 +68,9 @@ class App_UI(object):
         self.chat_content = ""
 
     def add_friend(self, friend_name: str):
-        print("Freund wird hinzugefügt.")
+        print("Adding friend.")
         self.friend_list.append(self.friend_name) if self.friend_name not in self.friend_list else self.friend_list
-        self.gui.changeOptionBox("Kontaktliste", self.friend_list)
+        self.gui.changeOptionBox("Contact list", self.friend_list)
         with open("friend_list.txt", 'w') as outfile:
             json.dump(app.friend_list, outfile)
 
@@ -92,41 +93,44 @@ def connect_to_overlay(app):
     local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
     if not local_node.joined:
-        app.gui.warningBox("Username bereits vorhanden", f"Authorisierung fehlgeschlagen: {app.username}")
+        app.gui.warningBox("Username already exists", f"authorization failed: {app.username}")
         return
 
     app.gui.stop()
     app.gui = gui(f"{app.username}'s Chat")
     app.gui.startTabbedFrame("TabbedFrame")
 
-    app.gui.startTab("Direkte Verbindung")
-    app.gui.addLabelEntry("Username des Freundes")
-    app.gui.addButtons(["Verbinden"], connect_to_friend)
+    app.gui.startTab("Direct Connection")
+    app.gui.addLabelEntry("Username of friend")
+    app.gui.addButtons(["Connect"], connect_to_friend)
     app.gui.stopTab()
 
-    app.gui.startTab("Kontaktliste")
-    app.gui.addLabelOptionBox("Kontaktliste", app.friend_list)
-    app.gui.addButtons(["Mit Kontakt verbinden"], connect_to_friend_from_list)
+    app.gui.startTab("Contact list")
+    app.gui.addLabelOptionBox("Contact list", app.friend_list)
+
+    app.gui.addButtons(["Connect with friend"], connect_to_friend_from_list, 1, 0, 2)
     app.gui.stopTab()
 
     app.gui.stopTabbedFrame()
+    app.gui.setFont(14)
+    app.gui.setGuiPadding(3)
     app.gui.go()
 
 
 def connect_to_friend_from_list(button):
     global app
     global local_node
-    friend_name = app.gui.getOptionBox("Kontaktliste")
-    if friend_name == "-- Freunde --":
+    friend_name = app.gui.getOptionBox("Contact list")
+    if friend_name == "-- Friends --":
         return
-    app.gui.setEntry("Username des Freundes", friend_name)
+    app.gui.setEntry("Username of friend", friend_name)
     connect_to_friend(button)
 
 
 def connect_to_friend(button):
     global app
     global local_node
-    app.friend_name = app.gui.getEntry("Username des Freundes")
+    app.friend_name = app.gui.getEntry("Username of friend")
     app.add_friend(app.friend_name)
 
     hashed_username = local_node.hash_username(app.friend_name)
@@ -134,7 +138,7 @@ def connect_to_friend(button):
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
     query_response = local_node.query(hashed_username, (peer_ip, int(peer_port)))
     if query_response == "ERROR":
-        app.gui.warningBox("Falscher Username", f"Benutzer existiert nicht: {app.friend_name}")
+        app.gui.warningBox("Wrong Username", f"User does not exist: {app.friend_name}")
     else:
 
         friend_ip, friend_port = query_response
@@ -151,14 +155,16 @@ app.gui.setSticky("ew")
 app.gui.setFont(14)
 
 app.gui.addLabel("title", "P2P Chat")
-#app.gui.addLabelEntry("Username",0,0,0,1)
+#app.gui.addLabelEntry("Username",0,0)
 app.gui.addLabel("l1", "Username", 0, 0)
 app.gui.addEntry("Username", 0, 1)
+#app.gui.addValidationEntry("Username", 0, 1)
 app.gui.setEntryDefault("Username", "e.g. P2P-Prophet")
 
 #app.gui.addLabelEntry("Port",1,0)
 app.gui.addLabel("l2", "Port", 1, 0)
 app.gui.addEntry("Port", 1, 1)
+#app.gui.addValidationEntry("Port", 1, 1)
 app.gui.setEntryDefault("Port", "e.g. 11111")
 
 #app.gui.addLabelEntry("Point of Entry",2,0)
@@ -167,7 +173,8 @@ app.gui.addEntry("Point of Entry", 2, 1)
 app.gui.setEntryDefault("Point of Entry", "e.g. 80.17.174.40:11111")
 
 app.gui.addLabel("l4", "", 3, 0)
-app.gui.addButtons(["Login"], login)
+app.gui.addButtons(["Login"], login, 4, 0, 2, 2)
+app.gui.stopLabelFrame()
 app.gui.go()
 app.gui.destroyAllSubWindows()
 if local_node:
