@@ -357,11 +357,11 @@ class LocalNode(object):
                 "Join wird abgebrochen.")
             return "ERROR"
         # Port und Ringposition sind Integers:
-        if int(responsible_peer[2]) == self.ring_position or (int(responsible_peer[2]) - username_key) % SIZE > (
-                self.ring_position - username_key) % SIZE:
-            self.keys[username_key] = ["", self.port, self.public_key, datetime.timestamp(datetime.utcnow())]
-            print("distribute_name() : Key wird bei sich selbst gespeichert.")
-            return
+        # if int(responsible_peer[2]) == self.ring_position or (int(responsible_peer[2]) - username_key) % SIZE > (
+        #         self.ring_position - username_key) % SIZE:
+        #     self.keys[username_key] = ["", self.port, self.public_key, datetime.timestamp(datetime.utcnow())]
+        #     print("distribute_name() : Key wird bei sich selbst gespeichert.")
+        #     return
         distsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             distsock.connect((responsible_peer[0], int(responsible_peer[1])))
@@ -372,6 +372,7 @@ class LocalNode(object):
             distsock.send(bytes(message, "utf-8"))
             response = distsock.recv(BUFFER_SIZE).split(bytes("_", "utf-8"))
             if str(response[0], "utf-8") == "SUCCESS":
+                distsock.close()
                 return "SUCCESS"
             if str(response[0], "utf-8") == "DECRYPT":
                 print("distribute() : Identität wird geprüft.")
@@ -379,15 +380,19 @@ class LocalNode(object):
                 try:
                     decrypted_message = decrypt(self.private_key, encrypted_message)
                 except ValueError:
+                    distsock.close()
                     return "ERROR"
                 distsock.send(decrypted_message)
                 response = str(distsock.recv(BUFFER_SIZE), "utf-8")
                 if response == "SUCCESS":
+                    distsock.close()
                     return "SUCCESS"
                 if response == "FAILURE":
+                    distsock.close()
                     return "ERROR"
         except socket.error:
             print("distribute_name(): Socket Error.")
+            distsock.close()
             return "ERROR"
 
     @repeat_and_sleep(CHECK_DISTRIBUTE_INT)
@@ -401,7 +406,7 @@ class LocalNode(object):
             print(
                 "check_distributed_name() : Verantwortlicher Peer ist offenbar ausgefallen. Name wird bei der nächsten Iteration neu gesetzt.")
             return
-        # Port und Ringposition sind Integers:
+        # Sollte niemals eintreten:
         if (int(responsible_peer[2]) - username_key) % SIZE > (self.ring_position - username_key) % SIZE:
             print("check_distributed_name() : Key ist beim falschen Peer gespeichert!!!")
             return
@@ -416,27 +421,39 @@ class LocalNode(object):
             response = distsock.recv(BUFFER_SIZE).split(bytes("_", "utf-8"))
             if str(response[0], "utf-8") == "SUCCESS":
                 print(
-                    "check_distributed_name() : Key war nicht mehr vorhanden, aber wurde neu gesetzt (sollte eigentlich bei Peer " +
-                    responsible_peer[0] + ":" + str(responsible_peer[1]) + " gewesen sein).")
+                    "check_distributed_name() : Key " + str(username_key) + " war nicht mehr vorhanden, aber wurde neu gesetzt (sollte eigentlich bei Peer " +
+                    responsible_peer[0] + ":" + responsible_peer[1] + " (" + responsible_peer[2] + ") gewesen sein).")
+                distsock.close()
                 return
             if str(response[0], "utf-8") == "DECRYPT":
                 print("distribute() : Identität wird geprüft.")
                 encrypted_message = bytes("_", "utf-8").join(response[1:])
-                decrypted_message = decrypt(self.private_key, encrypted_message)
+                try:
+                    decrypted_message = decrypt(self.private_key, encrypted_message)
+                except ValueError:
+                    print(
+                        "check_distributed_name() : Key kann nicht geändert werden. Möglicherweise ist der verwaltende Peer ausgefallen und jemand anderes hat den Namen angenommen.")
+                    print("check_distributed_name() : Anwendung wird beendet")
+                    distsock.close()
+                    self.shutdown()
+                    return
                 distsock.send(decrypted_message)
                 response = str(distsock.recv(BUFFER_SIZE), "utf-8")
                 if response == "SUCCESS":
                     # print("check_distributed_name() : Key ist noch vorhanden und beim richtigen Peer (" + responsible_peer[0] + ":" + str(responsible_peer[1]) + ").")
+                    distsock.close()
                     return
                 if response == "FAILURE":
                     print(
                         "check_distributed_name() : Key kann nicht geändert werden. Möglicherweise ist der verwaltende Peer ausgefallen und jemand anderes hat den Namen angenommen.")
                     print("check_distributed_name() : Anwendung wird beendet")
+                    distsock.close()
                     self.shutdown()
-                    sys.exit(0)
+                    return
         except socket.error:
             print("check_distributed_name(): Socket Error.")
-            return "ERROR"
+            distsock.close()
+            return
 
     def start_chat(self, remote_ip: str, remote_port: int):
         print(f"Starting Chord Chat with {remote_ip}:{remote_port}")
@@ -629,14 +646,12 @@ class LocalNode(object):
                     if decrypted_message == message_to_encrypt:
                         print("distribute() : Check successful.")
                         if remote_hash in list(self.keys):
-                            if not self.keys[remote_hash][0:2] == [addr[0], int(remote_port)]:
-                                self.keys[remote_hash][0:2] = [addr[0], int(remote_port)]
-                            response = "SUCCESS"
+                            print("distribute() : Erneuere key mit Position " + str(remote_hash))
                         else:
                             print("distribute() : Speichere key mit Position " + str(remote_hash))
-                            self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key,
-                                                      datetime.timestamp(datetime.utcnow())]
-                            response = "SUCCESS"
+                        self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key,
+                                                  datetime.timestamp(datetime.utcnow())]
+                        response = "SUCCESS"
                     else:
                         print("distribute() : Check unsuccessful!")
                         response = "FAILURE"
