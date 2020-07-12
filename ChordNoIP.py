@@ -17,7 +17,6 @@ class Daemon(threading.Thread):
         threading.Thread.__init__(self)
         self.obj_ = obj
         self.method_ = method
-        self.daemon = True
 
     def run(self):
         getattr(self.obj_, self.method_)()
@@ -504,7 +503,6 @@ class LocalNode(object):
         self.sock.bind(("0.0.0.0", self.port))
         self.sock.listen(10)
         self.conns = {}
-        self.threads = {}
         print("Server : Listening to Port " + str(self.port))
         while not self.shutdown_:
             conn, addr = self.sock.accept()
@@ -512,7 +510,6 @@ class LocalNode(object):
             # print(addr[0] + ":" + str(addr[1]) + " connected.")
             cthread = threading.Thread(target=self.client_thread, args=(conn, addr), daemon=True)
             cthread.start()
-            self.threads[addr[0] + ":" + str(addr[1])] = cthread
 
     def client_thread(self, conn, addr):
         while True:
@@ -521,14 +518,12 @@ class LocalNode(object):
             except socket.error:
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
-                del self.threads[addr[0] + ":" + str(addr[1])]
                 # print(addr[0] + ":" + str(addr[1]) + " disconnected (Error).")
                 break
             message = str(data, "utf-8")
             if not message:
                 conn.close()
                 del self.conns[addr[0] + ":" + str(addr[1])]
-                del self.threads[addr[0] + ":" + str(addr[1])]
                 # print(addr[0] + ":" + str(addr[1]) + " disconnected (No Message).")
                 break
             #print("Message from " + addr[0] + ":" + str(addr[1]) + ": " + message)
