@@ -19,23 +19,24 @@ def listening(app, conn_or_socket):
     conn_or_socket.settimeout(None)
     while app.connected:
         if app.quit:
+            conn_or_socket.close()
             break
         try:
         # Receive Message from Partner
             data = conn_or_socket.recv(1024)
         except Exception as msg:
-            print(msg)
-            print("!!!!!!!!!!!!!!!!!")
+            #print(msg)
+            #print("!!!!!!!!!!!!!!!!!")
             break
         # Parse Message    
         message = str(data, "utf-8")
-        if message == "EXIT" or message == "":
+        if not message:
             conn_or_socket.close()
             print("Partner disconnected.")
-        app.chat_content = app.chat_content + "\n" + f"{app.friend_name} says: {message}"
+        app.chat_content = app.chat_content + "\n" + f"{app.friend_name}: {message}"
         app.gui.setMessage("chat_output", app.chat_content)
-        print(f"Partner says: {message}")
-    print("Chat not listening anymore")
+        #print(f"{app.friend_name}: {message}")
+    #print("Chat not listening anymore")
     app.connected = False
     app.chat_content = "Partner Disconnected"
     try:
@@ -54,19 +55,21 @@ def sending(app, conn_or_socket):
         if app.input_ready:
             app.input_ready = False
             message = app.gui.getEntry("chat_input")
-            app.chat_content = app.chat_content + "\n" + f"You say: {message}"
+            app.chat_content = app.chat_content + "\n" + f"{app.username}: {message}"
             app.gui.setMessage("chat_output", app.chat_content)
             if message == "" or message == "EXIT":
+                conn_or_socket.close()
                 break
             data = bytes(message, "utf-8")
             try:
                 conn_or_socket.send(data)
-                print(f"You Said: {message}")
+                #print(f"{app.username}: {message}")
             except Exception as msg:
-                print(msg)
-                print("???????!!!!!!!")
+                pass
+                #print(msg)
+                #print("???????!!!!!!!")
         time.sleep(0.1)
-    print("Chat not sending anymore")
+    #print("Chat not sending anymore")
     app.connected = False
     app.chat_content = "Partner Disconnected"
     try:
@@ -93,8 +96,8 @@ def start(app, conn_or_socket):
     sending_thread.start()
     sending_thread.join()
     listening_thread.join()
-    print("chat Threads closed")
-    print(app.window_name)
+    #print("chat Threads closed")
+    #print(app.window_name)
     time.sleep(1)
     #if app.window_name != "":
         #app.gui.destroyAllSubWindows()
