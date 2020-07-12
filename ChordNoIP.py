@@ -86,7 +86,7 @@ class LocalNode(object):
         for key in self.daemons:
             self.daemons[key].daemon = True
             self.daemons[key].start()
-        print("Daemons started.")
+        print("Daemons gestartet.")
 
     def id(self):
         # return hash(self.username) % SIZE
@@ -94,7 +94,7 @@ class LocalNode(object):
         return random.randint(0, SIZE - 1)
 
     def join(self):
-        print("Join started.")
+        #print("Join gestartet.")
         if not self.entry_address:
             self.successor = ["", self.port, self.ring_position]
             self.predecessor = ["", self.port, self.ring_position]
@@ -103,26 +103,26 @@ class LocalNode(object):
             self.keys[username_key] = ["", self.port, self.public_key, datetime.timestamp(datetime.utcnow())]
             print("Neue Chord DHT wurde gestartet. Warte auf Verbindungen.")
             return True
-        print("join() : Frage an, ob Name verfügbar.")
+        #print("join() : Frage an, ob Name verfügbar.")
         distribute_status = self.distribute_name(self.entry_address)
         if distribute_status == "ERROR":
             print("join() : Fehler beim Verteilen des Namens.")
             return False
-        print("join() : Suche Successor von eigener Ringposition")
+        #print("join() : Suche Successor von eigener Ringposition")
         succinfo = self.succ(self.ring_position, self.entry_address).split("_")
         if succinfo[0] == "ERROR":
-            print("Entry-Adresse nicht erreichbar. Programm wird beendet.")
+            print("Point of Entry nicht erreichbar. Programm wird beendet.")
             self.shutdown()
             return False
         if not succinfo[0]:
             succinfo[0] = self.entry_address[0]
         self.successor = [succinfo[0], int(succinfo[1]), int(succinfo[2])]
-        print("join() : Gebe successor bescheid")
+        #print("join() : Gebe successor bescheid")
         self.notify_successor()
         print("join() : Successor " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
-        print("join() : Suche nach Fingern...")
+        #print("join() : Suche nach Fingern...")
         print("join() : Finger " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
         self.fingers[self.successor[2]] = [self.successor[0], self.successor[1]]
@@ -130,7 +130,7 @@ class LocalNode(object):
         for finger in finger_positions:
             if (finger - self.ring_position) % SIZE > (found - self.ring_position) % SIZE:
                 # if not (self.successor[2] - finger) % SIZE < (self.successor[2] - self.ring_position) % SIZE:
-                print("join() : Suche nach Finger mit Position " + str(finger))
+                #print("join() : Suche nach Finger mit Position " + str(finger))
                 info = self.succ(finger).split("_")
                 if info[0] == "ERROR":
                     continue
@@ -141,7 +141,6 @@ class LocalNode(object):
         print("Join abgeschlossen.")
         return True
 
-    # @retry_on_socket_error(SUCC_RET)
     def succ(self, k, entry=None, joined=True):
         # print("succ() : Trying to acquire lock.")
         # print("succ() : Lock acquired.")
@@ -179,6 +178,12 @@ class LocalNode(object):
             if joined:
                 message = "SUCC_" + str(k) + "_LISTENING_" + str(self.port) + "_" + str(self.ring_position)
             else:
+                """
+                Diese Flag existiert für den Join eines neuen Peers. Wenn joined == False, dann wird der anfragende Peer nicht als Mitglied des Chord-Rings angesehen.
+                Der Grund dafür ist, dass Peer 0 einen neu joinenden Peer sofort als Successor und Finger speichert, wenn er alleine im Netzwerk ist.
+                Wir wollen das aber nicht, weil es sein kann, dass der Name des neu joinenden Peers bereits vergeben ist; dann wird der Eintritt in das Netzwerk nämlich
+                verweigert
+                """
                 message = "SUCC_" + str(k) + "_LISTENING_" + str(self.port) + "_NOJOIN_" + str(self.ring_position)
             self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.succsock.settimeout(GLOBAL_TIMEOUT)
@@ -212,7 +217,7 @@ class LocalNode(object):
 
     def notify_successor(self):
         notisock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(f"notify_successor() : Verbinde mit {self.successor[0]}:{self.successor[1]} ({self.successor[2]})")
+        #print(f"notify_successor() : Verbinde mit {self.successor[0]}:{self.successor[1]} ({self.successor[2]})")
         notisock.connect((self.successor[0], self.successor[1]))
         notisock.send(
             bytes("JOINED_LISTENING_" + str(self.port) + "_" + str(self.ring_position), "utf-8"))
@@ -307,6 +312,7 @@ class LocalNode(object):
         # finger_diff = False
         found = None
         for fpos in finger_positions:
+            # Es wird nur eine Anfrage rausgeschickt, wenn die aktuell zu prüfende Fingerposition weiter weg ist als der zuletzt gefundene Finger:
             if not found or (fpos - self.ring_position) % SIZE > (found - self.ring_position) % SIZE:
                 info = self.succ(fpos).split("_")
                 if info[0] == "ERROR":
@@ -316,6 +322,7 @@ class LocalNode(object):
                     self.fingers[int(info[2])] = [info[0], int(info[1])]
                     found = int(info[2])
         if self.fingers:
+            # Überprüfe, ob nun redundante Finger gespeichert sind:
             times_minimum = np.zeros_like(list(self.fingers))
             for fpos in finger_positions:
                 distances = (np.array(list(self.fingers)) - fpos) % SIZE
@@ -328,6 +335,7 @@ class LocalNode(object):
                         list(self.fingers.keys())[d]) + ")")
                     del self.fingers[list(self.fingers.keys())[d]]
         # print("fix_fingers(): Pinging Finger list.")
+        # Pinge nun alle übrigen Finger an:
         for finger in list(self.fingers):
             self.ffsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.ffsock.settimeout(GLOBAL_TIMEOUT)
@@ -627,13 +635,13 @@ class LocalNode(object):
                 serialized_remote_public_key = msgsplit[5]
                 #remote_public_key = unserializePublicKey(bytes(serialized_remote_public_key, "utf-8"))
                 if remote_hash not in list(self.keys):
-                    print("distribute() : Speichere key mit Position " + str(
+                    print("distribute_name() : Speichere key mit Position " + str(
                         remote_hash) + ", erhalten von " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")")
                     self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key,
                                               datetime.timestamp(datetime.utcnow())]
                     response = "SUCCESS"
                 else:
-                    print("distribute() : Identität von Peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")" + " wird überprüft.")
+                    print("distribute_name() : Identität von Peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")" + " wird überprüft.")
                     message_to_encrypt = os.urandom(16)
                     pubkey_from_value = unserializePublicKey(bytes(self.keys[remote_hash][2], "utf-8"))
                     # print("distribute_name() : Nachricht, die encrypted wird: ")
@@ -644,16 +652,12 @@ class LocalNode(object):
                     # print("distribute_name() : Nachricht von Peer " + sending_peer_id + ": ")
                     # print(decrypted_message)
                     if decrypted_message == message_to_encrypt:
-                        print("distribute() : Check erfolgreich.")
-                        if remote_hash in list(self.keys):
-                            print("distribute() : Erneuere key mit Position " + str(remote_hash))
-                        else:
-                            print("distribute() : Speichere key mit Position " + str(remote_hash))
+                        print("distribute() : Überprüfung erfolgreich. Erneuere key mit Position " + str(remote_hash))
                         self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key,
                                                   datetime.timestamp(datetime.utcnow())]
                         response = "SUCCESS"
                     else:
-                        print("distribute() : Check fehlgeschlagen!")
+                        print("distribute() : Überprüfung fehlgeschlagen!")
                         response = "FAILURE"
             elif command == "QUERY":
                 queried_position = int(msgsplit[1])

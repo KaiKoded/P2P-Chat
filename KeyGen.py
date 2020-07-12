@@ -9,7 +9,7 @@ import os
 def getPrivateKey():
     currentPath = os.getcwd() + "\private_key.pem"
     if not os.path.isfile(currentPath):
-        print("Generating new private key.")
+        print("Neuer privater Schlüssel wird generiert.")
         private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
@@ -18,31 +18,31 @@ def getPrivateKey():
         storePrivateKey(private_key)
         return private_key
     else:
-        print("Existing private key found.")
+        print("Existierender privater Schlüssel gefunden.")
         return readPrivateKey()
 
 
 def getPublicKey(private_key):
     currentPath = os.getcwd() + "\public_key.pem"
     if not os.path.isfile(currentPath):
-        print("Generating new public key.")
+        print("Neuer öffentlicher Schlüssel wird generiert.")
         public_key = private_key.public_key()
         storePublicKey(public_key)
         return public_key
     else:
-        print("Existing public key found.")
+        print("Existierender öffentlicher Schlüssel gefunden.")
         return readPublicKey()
 
 
 def storePrivateKey(private_key):
-    print("Storing newly generated private key.")
+    print("Neu generierter privater Schlüssel wird gespeichert.")
     pem = serializePrivateKey(private_key)
     with open('private_key.pem', 'wb') as f:
         f.write(pem)
 
 
 def storePublicKey(public_key):
-    print("Storing newly generated public key.")
+    print("Neu generierter öffentlicher Schlüssel wird gespeichert.")
     pem = serializePublicKey(public_key)
     with open('public_key.pem', 'wb') as f:
         f.write(pem)
