@@ -53,7 +53,7 @@ class LocalNode(object):
 
     def shutdown(self):
         self.shutdown_ = True
-        print("shutdown() : Initiating shutdown.")
+        print("shutdown() : Shutdown wird eingeleitet.")
         if not self.successor[0] == "":
             try:
                 to_successor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -108,7 +108,7 @@ class LocalNode(object):
         if distribute_status == "ERROR":
             print("join() : Fehler beim Verteilen des Namens.")
             return False
-        print("join() : Suche successor von eigener Ringposition")
+        print("join() : Suche Successor von eigener Ringposition")
         succinfo = self.succ(self.ring_position, self.entry_address).split("_")
         if succinfo[0] == "ERROR":
             print("Entry-Adresse nicht erreichbar. Programm wird beendet.")
@@ -122,7 +122,7 @@ class LocalNode(object):
         print("join() : Successor " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
-        print("join() : Looking for fingers")
+        print("join() : Suche nach Fingern...")
         print("join() : Finger " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
         self.fingers[self.successor[2]] = [self.successor[0], self.successor[1]]
@@ -138,7 +138,7 @@ class LocalNode(object):
                 if not found == self.ring_position and found not in list(self.fingers):
                     print("join() : Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
                     self.fingers[found] = [info[0], int(info[1])]
-        print("Join finished.")
+        print("Join abgeschlossen.")
         return True
 
     # @retry_on_socket_error(SUCC_RET)
@@ -203,11 +203,11 @@ class LocalNode(object):
                 return response
             except socket.error:
                 self.lock.release()
-                print(str(threading.currentThread()) + " : succ() : Socket error. Retrying...")
+                print(str(threading.currentThread()) + " : succ() : Socket-Fehler. Versuche erneut...")
                 retries += 1
                 time.sleep(3)
             if retries == SUCC_RET:
-                print("succ() : Request failed!")
+                print("succ() : Anfrage gescheitert!")
                 return "ERROR"
 
     def notify_successor(self):
@@ -375,7 +375,7 @@ class LocalNode(object):
                 distsock.close()
                 return "SUCCESS"
             if str(response[0], "utf-8") == "DECRYPT":
-                print("distribute() : Identität wird geprüft.")
+                #print("distribute() : Identität wird geprüft.")
                 encrypted_message = bytes("_", "utf-8").join(response[1:])
                 try:
                     decrypted_message = decrypt(self.private_key, encrypted_message)
@@ -391,7 +391,7 @@ class LocalNode(object):
                     distsock.close()
                     return "ERROR"
         except socket.error:
-            print("distribute_name(): Socket Error.")
+            print("distribute_name(): Socket-Fehler.")
             distsock.close()
             return "ERROR"
 
@@ -408,7 +408,7 @@ class LocalNode(object):
             return
         # Sollte niemals eintreten:
         if (int(responsible_peer[2]) - username_key) % SIZE > (self.ring_position - username_key) % SIZE:
-            print("check_distributed_name() : Key ist beim falschen Peer gespeichert!!!")
+            print("check_distributed_name() : Key ist beim falschen Peer gespeichert!")
             return
         distsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -426,7 +426,7 @@ class LocalNode(object):
                 distsock.close()
                 return
             if str(response[0], "utf-8") == "DECRYPT":
-                print("distribute() : Identität wird geprüft.")
+                #print("distribute() : Identität wird geprüft.")
                 encrypted_message = bytes("_", "utf-8").join(response[1:])
                 try:
                     decrypted_message = decrypt(self.private_key, encrypted_message)
@@ -451,12 +451,12 @@ class LocalNode(object):
                     self.shutdown()
                     return
         except socket.error:
-            print("check_distributed_name(): Socket Error.")
+            print("check_distributed_name(): Socket-Fehler")
             distsock.close()
             return
 
     def start_chat(self, remote_ip: str, remote_port: int):
-        print(f"Starting Chord Chat with {remote_ip}:{remote_port}")
+        print(f"Chord-Chat mit {remote_ip}:{remote_port} wird gestartet.")
         try:
             chatsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             chatsock.settimeout(GLOBAL_TIMEOUT)
@@ -477,7 +477,7 @@ class LocalNode(object):
         return conn
 
     def connect_chat(self, remote_ip: str, remote_port: int, remote_name: str):
-        print(f"Incoming chat from {remote_ip}:{remote_port}")
+        print(f"Eingehende Chat-Anfrage von {remote_ip}:{remote_port}")
         try:
             connectsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connectsock.settimeout(GLOBAL_TIMEOUT)
@@ -511,7 +511,7 @@ class LocalNode(object):
                             self.ring_position), "utf-8"))
                     time.sleep(0.1)
                 else:
-                    print("give_keys() : Dropping old username of " + ip + ":" + str(port))
+                    print("give_keys() : Verwerfe alten Usernamen von " + ip + ":" + str(port) + " an Position " + str(x))
                 del self.keys[x]
             givesock.close()
         except socket.error:
@@ -537,7 +537,7 @@ class LocalNode(object):
             querysock.close()
             return response[0], int(response[1])
         except socket.error:
-            print("query(): Socket error")
+            print("query(): Socket-Fehler")
             querysock.close()
             return "ERROR"
 
@@ -547,7 +547,7 @@ class LocalNode(object):
         self.sock.bind(("0.0.0.0", self.port))
         self.sock.listen(10)
         self.conns = {}
-        print("Server : Listening to Port " + str(self.port))
+        print("Server : Höre zu auf Port " + str(self.port))
         while not self.shutdown_:
             conn, addr = self.sock.accept()
             self.conns[addr[0] + ":" + str(addr[1])] = conn
@@ -590,7 +590,7 @@ class LocalNode(object):
             elif command == "STABILIZE":
                 if self.predecessor == []:
                     print(
-                        "stabilize() : Setze neuen Predecessor da zuvor keiner vorhanden: " + addr[0] + ":" + msgsplit[
+                        "stabilize() : Setze neuen Predecessor, da zuvor keiner vorhanden: " + addr[0] + ":" + msgsplit[
                             2] + " (" + str(sending_peer_id) + ")")
                     self.predecessor = [addr[0], int(msgsplit[2]), int(sending_peer_id)]
                 response = str(self.predecessor[0]) + "_" + str(self.predecessor[1]) + "_" + str(self.predecessor[2])
@@ -618,7 +618,7 @@ class LocalNode(object):
                 port = int(msgsplit[3])
                 public_key = msgsplit[4]
                 timestamp = float(msgsplit[5])
-                print("give_keys() : Receiving key on position " + str(hash_key) + " from peer " + addr[0] + ":" + str(port) + " (" + sending_peer_id + ")")
+                print("give_keys() : Erhalte Key an Position " + str(hash_key) + " von Peer " + addr[0] + ":" + str(port) + " (" + sending_peer_id + ")")
                 self.keys[hash_key] = [ip, port, public_key, timestamp]
             elif command == "DISTRIBUTE":
                 remote_hash = int(msgsplit[1])
@@ -633,7 +633,7 @@ class LocalNode(object):
                                               datetime.timestamp(datetime.utcnow())]
                     response = "SUCCESS"
                 else:
-                    print("distribute() : Checking identity of peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")")
+                    print("distribute() : Identität von Peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")" + " wird überprüft.")
                     message_to_encrypt = os.urandom(16)
                     pubkey_from_value = unserializePublicKey(bytes(self.keys[remote_hash][2], "utf-8"))
                     # print("distribute_name() : Nachricht, die encrypted wird: ")
@@ -644,7 +644,7 @@ class LocalNode(object):
                     # print("distribute_name() : Nachricht von Peer " + sending_peer_id + ": ")
                     # print(decrypted_message)
                     if decrypted_message == message_to_encrypt:
-                        print("distribute() : Check successful.")
+                        print("distribute() : Check erfolgreich.")
                         if remote_hash in list(self.keys):
                             print("distribute() : Erneuere key mit Position " + str(remote_hash))
                         else:
@@ -653,7 +653,7 @@ class LocalNode(object):
                                                   datetime.timestamp(datetime.utcnow())]
                         response = "SUCCESS"
                     else:
-                        print("distribute() : Check unsuccessful!")
+                        print("distribute() : Check fehlgeschlagen!")
                         response = "FAILURE"
             elif command == "QUERY":
                 queried_position = int(msgsplit[1])
@@ -663,7 +663,7 @@ class LocalNode(object):
                         print("query(): Übergebe angefragten Key " + str(queried_position))
                         response = self.keys[queried_position][0] + "_" + str(self.keys[queried_position][1])
                     else:
-                        print("query() : Dropping old key " + str(queried_position))
+                        print("query() : Alter Key " + str(queried_position) + " wird verworfen.")
                         del self.keys[queried_position]
                         response = "ERROR"
                 else:
