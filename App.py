@@ -8,6 +8,9 @@ from os import path
 
 class App_UI(object):
     gui = gui("Threading Chord")
+    gui.setTitle("P2P Chat Ultimate")
+    #gui.setBg("lightGrey")
+    gui.setFont(16)
     chat_content = ""
     input_ready = False
     port = 11111
@@ -21,6 +24,7 @@ class App_UI(object):
     socket = {}
     friend_list = ["-- Freunde --"]
     window_name = ""
+    gui.setGuiPadding(3)
 
     def __init__(self):
         super().__init__()
@@ -140,11 +144,28 @@ def connect_to_friend(button):
 app = App_UI()
 local_node = {}
 
-app.gui.addLabel("title", "P2P Chat")
-app.gui.addLabelEntry("Username")
-app.gui.addLabelEntry("Port")
-app.gui.addLabelEntry("Point of Entry")
+app.gui.startLabelFrame("Login Details")
+# these only affect the labelFrame
+app.gui.setSticky("ew")
+app.gui.setFont(14)
 
+app.gui.addLabel("title", "P2P Chat")
+#app.gui.addLabelEntry("Username",0,0,0,1)
+app.gui.addLabel("l1", "Username", 0, 0)
+app.gui.addEntry("Username", 0, 1)
+app.gui.setEntryDefault("Username", "e.g. P2P-Prophet")
+
+#app.gui.addLabelEntry("Port",1,0)
+app.gui.addLabel("l2", "Port", 1, 0)
+app.gui.addEntry("Port", 1, 1)
+app.gui.setEntryDefault("Port", "e.g. 11111")
+
+#app.gui.addLabelEntry("Point of Entry",2,0)
+app.gui.addLabel("l3", "Point of Entry", 2, 0)
+app.gui.addEntry("Point of Entry", 2, 1)
+app.gui.setEntryDefault("Point of Entry", "e.g. 80.17.174.40:11111")
+
+app.gui.addLabel("l4", "", 3, 0)
 app.gui.addButtons(["Login"], login)
 app.gui.go()
 app.gui.destroyAllSubWindows()
