@@ -488,7 +488,7 @@ class LocalNode(object):
             self.app.chat(self.app.friend_name)
         except Exception as msg:
             print(msg)
-        return conn
+        return
 
     def connect_chat(self, remote_ip: str, remote_port: int, remote_name: str):
         print(f"Eingehender Chat mit {remote_ip}:{remote_port}")
@@ -502,7 +502,7 @@ class LocalNode(object):
             self.app.chat(remote_name)
         except Exception as msg:
             print(msg)
-        return connectsock
+        return
 
     def give_keys(self, remote_address: tuple, up_until: int):
         keys_to_send = [x for x in list(self.keys) if
