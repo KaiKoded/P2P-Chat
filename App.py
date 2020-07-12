@@ -35,6 +35,7 @@ class App_UI(object):
 
     def chat(self, remote_name):
         self.friend_name = remote_name
+        self.add_friend(self.friend_name)
         print(f"Chat wird gestartet.")
         thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
         thread.start()
