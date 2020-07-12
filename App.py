@@ -19,7 +19,7 @@ class App_UI(object):
     conn_or_socket = {}
     threads = []
     socket = {}
-    friend_list = []
+    friend_list = ["-- Freunde --"]
     window_name = ""
 
     def __init__(self):
@@ -65,7 +65,7 @@ class App_UI(object):
     def add_friend(self, friend_name: str):
         print("Freund wird hinzugefügt.")
         self.friend_list.append(self.friend_name) if self.friend_name not in self.friend_list else self.friend_list
-        self.gui.changeOptionBox("Friend List", self.friend_list)
+        self.gui.changeOptionBox("Kontaktliste", self.friend_list)
         with open("friend_list.txt", 'w') as outfile:
             json.dump(app.friend_list, outfile)
 
@@ -113,6 +113,8 @@ def connect_to_friend_from_list(button):
     global app
     global local_node
     friend_name = app.gui.getOptionBox("Kontaktliste")
+    if friend_name == "-- Freunde --":
+        return
     app.gui.setEntry("Username des Freundes", friend_name)
     connect_to_friend(button)
 
