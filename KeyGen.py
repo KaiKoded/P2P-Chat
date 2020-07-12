@@ -119,6 +119,7 @@ def unserializePublicKey(serialized_key):
         backend=default_backend())
     return public_key
 
+
 # TEST
 # message_to_encrypt = os.urandom(16)
 # print(message_to_encrypt)

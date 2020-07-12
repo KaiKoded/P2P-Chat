@@ -81,11 +81,16 @@ def login(button):
 
 
 def connect_to_overlay(app):
-    app.gui.stop()
 
     global local_node
+
     local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
+    if not local_node.joined:
+        app.gui.warningBox("Username taken", f"Authorization failed: {app.username}")
+        return
+
+    app.gui.stop()
     app.gui = gui(f"{app.username} Chat")
     app.gui.startTabbedFrame("TabbedFrame")
 
