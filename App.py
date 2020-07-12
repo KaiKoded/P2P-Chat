@@ -40,7 +40,7 @@ class App_UI(object):
     def chat(self, remote_name):
         self.friend_name = remote_name
         self.add_friend(self.friend_name)
-        print(f"Chat wird gestartet.")
+        #print(f"Chat wird gestartet.")
         thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
         thread.start()
         window_name = f"Chat mit {self.friend_name}"
@@ -55,12 +55,12 @@ class App_UI(object):
         self.gui.showSubWindow(window_name)
         self.window_name = ""
         self.gui.destroyAllSubWindows()
-        print("Chat geschlossen")
+        print("Chat beendet.")
         self.connected = False
         self.conn_or_socket.close()
-        print("Warte darauf, dass alle Chats geschlossen werden.")
+        #print("Warte darauf, dass alle Chats geschlossen werden.")
         thread.join()
-        print("Chat Main-Threads geschlossen")
+        #print("Chat Main-Threads geschlossen")
         if self.socket:
             self.socket.close()
             self.socket = {}
@@ -130,6 +130,7 @@ def connect_to_friend(button):
     app.add_friend(app.friend_name)
 
     hashed_username = local_node.hash_username(app.friend_name)
+    # TODO: Error handling falls succ fehlschlägt
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
     query_response = local_node.query(hashed_username, (peer_ip, int(peer_port)))
     if query_response == "ERROR":
@@ -137,7 +138,7 @@ def connect_to_friend(button):
     else:
 
         friend_ip, friend_port = query_response
-        print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
+        #print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
         local_node.start_chat(friend_ip, int(friend_port))
 
 

@@ -54,25 +54,29 @@ class LocalNode(object):
     def shutdown(self):
         self.shutdown_ = True
         print("shutdown() : Shutdown wird eingeleitet.")
-        if not self.successor[0] == "":
+        if self.successor and not self.successor[2] == self.ring_position:
+            to_successor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            to_successor.settimeout(GLOBAL_TIMEOUT)
             try:
-                to_successor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                to_successor.settimeout(GLOBAL_TIMEOUT)
                 to_successor.connect((self.successor[0], self.successor[1]))
                 to_successor.send(bytes(
                     "SHUTDOWN_PREDECESSOR:_" + self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(
                         self.predecessor[2]), "utf-8"))
-                to_successor.close()
-                to_predecessor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                to_predecessor.settimeout(GLOBAL_TIMEOUT)
+            except socket.error:
+                print("shutdown() : Fehler beim Senden der Predecessor-Informationen.")
+            to_successor.close()
+            self.give_keys((self.successor[0], self.successor[1]), self.ring_position)
+        if self.predecessor and not self.predecessor[2] == self.ring_position:
+            to_predecessor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            to_predecessor.settimeout(GLOBAL_TIMEOUT)
+            try:
                 to_predecessor.connect((self.predecessor[0], self.predecessor[1]))
                 to_predecessor.send(bytes(
                     "SHUTDOWN_SUCCESSOR:_" + self.successor[0] + "_" + str(self.successor[1]) + "_" + str(
                         self.successor[2]), "utf-8"))
-                to_predecessor.close()
             except socket.error:
-                print("shutdown() : Fehler beim Senden der Successor- oder Predecessor-Informationen.")
-            self.give_keys((self.successor[0], self.successor[1]), self.ring_position)
+                print("shutdown() : Fehler beim Senden der Successor-Informationen.")
+            to_predecessor.close()
         for connection in list(self.conns):
             self.conns[connection].close()
         sys.exit(0)
@@ -207,6 +211,7 @@ class LocalNode(object):
                 # print("succ() : Abgeschlossen. Lock released.")
                 return response
             except socket.error:
+                self.succsock.close()
                 self.lock.release()
                 print(str(threading.currentThread()) + " : succ() : Socket-Fehler. Versuche erneut...")
                 retries += 1
@@ -277,6 +282,7 @@ class LocalNode(object):
         # print("stabilize(): Antwort erhalten: " + "_".join(response))
         if int(response[2]) == self.ring_position:
             # print("stabilize(): Alles in Ordnung.")
+            self.stabsock.close()
             return
         # print("stabilize(): " + response[2] + " unterscheidet sich von " + str(self.ring_position))
         print("stabilize(): Setze neuen successor: " + response[0] + ":" + response[1] + " (" + response[2] + ")")
@@ -383,7 +389,7 @@ class LocalNode(object):
                 distsock.close()
                 return "SUCCESS"
             if str(response[0], "utf-8") == "DECRYPT":
-                #print("distribute() : Identität wird geprüft.")
+                #print("distribute_name() : Identität wird geprüft.")
                 encrypted_message = bytes("_", "utf-8").join(response[1:])
                 try:
                     decrypted_message = decrypt(self.private_key, encrypted_message)
@@ -434,7 +440,7 @@ class LocalNode(object):
                 distsock.close()
                 return
             if str(response[0], "utf-8") == "DECRYPT":
-                #print("distribute() : Identität wird geprüft.")
+                #print("distribute_name() : Identität wird geprüft.")
                 encrypted_message = bytes("_", "utf-8").join(response[1:])
                 try:
                     decrypted_message = decrypt(self.private_key, encrypted_message)
@@ -482,10 +488,10 @@ class LocalNode(object):
             self.app.chat(self.app.friend_name)
         except Exception as msg:
             print(msg)
-        return conn
+        return
 
     def connect_chat(self, remote_ip: str, remote_port: int, remote_name: str):
-        print(f"Eingehende Chat-Anfrage von {remote_ip}:{remote_port}")
+        print(f"Eingehender Chat mit {remote_ip}:{remote_port}")
         try:
             connectsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connectsock.settimeout(GLOBAL_TIMEOUT)
@@ -496,7 +502,7 @@ class LocalNode(object):
             self.app.chat(remote_name)
         except Exception as msg:
             print(msg)
-        return connectsock
+        return
 
     def give_keys(self, remote_address: tuple, up_until: int):
         keys_to_send = [x for x in list(self.keys) if
@@ -562,6 +568,7 @@ class LocalNode(object):
             # print(addr[0] + ":" + str(addr[1]) + " connected.")
             cthread = threading.Thread(target=self.client_thread, args=(conn, addr), daemon=True)
             cthread.start()
+        self.sock.close()
 
     def client_thread(self, conn, addr):
         while True:
@@ -626,7 +633,7 @@ class LocalNode(object):
                 port = int(msgsplit[3])
                 public_key = msgsplit[4]
                 timestamp = float(msgsplit[5])
-                print("give_keys() : Erhalte Key an Position " + str(hash_key) + " von Peer " + addr[0] + ":" + str(port) + " (" + sending_peer_id + ")")
+                print("give_keys() : Erhalte Key an Position " + str(hash_key) + " von Peer " + ip + ":" + str(port) + " (" + sending_peer_id + ")")
                 self.keys[hash_key] = [ip, port, public_key, timestamp]
             elif command == "DISTRIBUTE":
                 remote_hash = int(msgsplit[1])
@@ -641,7 +648,7 @@ class LocalNode(object):
                                               datetime.timestamp(datetime.utcnow())]
                     response = "SUCCESS"
                 else:
-                    print("distribute_name() : Identität von Peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")" + " wird überprüft.")
+                    #print("distribute_name() : Identität von Peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ")" + " wird überprüft.")
                     message_to_encrypt = os.urandom(16)
                     pubkey_from_value = unserializePublicKey(bytes(self.keys[remote_hash][2], "utf-8"))
                     # print("distribute_name() : Nachricht, die encrypted wird: ")
@@ -652,12 +659,12 @@ class LocalNode(object):
                     # print("distribute_name() : Nachricht von Peer " + sending_peer_id + ": ")
                     # print(decrypted_message)
                     if decrypted_message == message_to_encrypt:
-                        print("distribute() : Überprüfung erfolgreich. Erneuere key mit Position " + str(remote_hash))
+                        #print("distribute_name() : Überprüfung erfolgreich. Erneuere key mit Position " + str(remote_hash))
                         self.keys[remote_hash] = [addr[0], int(remote_port), serialized_remote_public_key,
                                                   datetime.timestamp(datetime.utcnow())]
                         response = "SUCCESS"
                     else:
-                        print("distribute() : Überprüfung fehlgeschlagen!")
+                        print("distribute_name() : Peer " + addr[0] + ":" + remote_port + " (" + sending_peer_id + ") konnte sich nicht korrekt identifizieren!")
                         response = "FAILURE"
             elif command == "QUERY":
                 queried_position = int(msgsplit[1])
