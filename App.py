@@ -20,6 +20,7 @@ class App_UI(object):
     threads = []
     socket = {}
     friend_list = []
+    window_name = ""
 
     def __init__(self):
         super().__init__()
@@ -38,6 +39,7 @@ class App_UI(object):
         thread = threading.Thread(target=Chat.start, args=(self, self.conn_or_socket), daemon=True)
         thread.start()
         window_name = f"Chat with {self.friend_name}"
+        self.window_name = window_name
         self.gui.startSubWindow(window_name, transient=True, blocking=True)
         self.gui.startLabelFrame("Chat")
         self.gui.addEmptyMessage("chat_output")
@@ -46,13 +48,14 @@ class App_UI(object):
         self.gui.stopLabelFrame()
         self.gui.stopSubWindow()
         self.gui.showSubWindow(window_name)
+        self.window_name = ""
+        self.gui.destroyAllSubWindows()
         print("Chat closed")
         self.connected = False
         self.conn_or_socket.close()
         print("Waiting for all chats to close")
         thread.join()
         print("chat Main Threads closed")
-        self.gui.destroyAllSubWindows()
         if self.socket:
             self.socket.close()
             self.socket = {}

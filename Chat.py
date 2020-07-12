@@ -35,6 +35,8 @@ def listening(app, conn_or_socket):
         app.chat_content = app.chat_content + "\n" + f"{app.friend_name} says: {message}"
         app.gui.setMessage("chat_output", app.chat_content)
         print(f"Partner says: {message}")
+    print("Chat not listening anymore")
+    app.connected = False
 
 def sending(app, conn_or_socket):
     """Sends Messages to Partner."""
@@ -42,6 +44,7 @@ def sending(app, conn_or_socket):
     time.sleep(1)
     while app.connected:
         if app.quit:
+            print("App quit")
             break
         if app.input_ready:
             app.input_ready = False
@@ -58,6 +61,8 @@ def sending(app, conn_or_socket):
                 print(msg)
                 print("???????!!!!!!!")
         time.sleep(0.1)
+    print("Chat not sending anymore")
+    app.connected = False
 
 def chat_button(button):
     global g_app
@@ -79,6 +84,10 @@ def start(app, conn_or_socket):
     sending_thread.join()
     listening_thread.join()
     print("chat Threads closed")
+    print(app.window_name)
+    time.sleep(1)
+    if app.window_name != "":
+        app.gui.destroyAllSubWindows()
     #conn_or_socket.close()
     
 
