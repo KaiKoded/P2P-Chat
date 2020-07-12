@@ -1,4 +1,3 @@
-import cryptography
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
@@ -9,7 +8,7 @@ import os
 
 def getPrivateKey():
     currentPath = os.getcwd() + "\private_key.pem"
-    if os.path.isfile(currentPath) == False:
+    if not os.path.isfile(currentPath):
         print("Generating new private key.")
         private_key = rsa.generate_private_key(
             public_exponent=65537,
@@ -25,7 +24,7 @@ def getPrivateKey():
 
 def getPublicKey(private_key):
     currentPath = os.getcwd() + "\public_key.pem"
-    if os.path.isfile(currentPath) == False:
+    if not os.path.isfile(currentPath):
         print("Generating new public key.")
         public_key = private_key.public_key()
         storePublicKey(public_key)
@@ -90,17 +89,34 @@ def decrypt(private_key, encrypted_message):
     )
     return decrypted_message
 
+
+def serializePrivateKey(private_key):
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption())
+    return pem
+
+
+def unserializePrivateKey(serialized_key):
+    private_key = serialization.load_pem_private_key(
+        serialized_key,
+        password=None,
+        backend=default_backend())
+    return private_key
+
+
 def serializePublicKey(public_key):
     pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
+        format=serialization.PublicFormat.SubjectPublicKeyInfo)
     return pem
+
 
 def unserializePublicKey(serialized_key):
     public_key = serialization.load_pem_public_key(
-            serialized_key,
-            backend=default_backend())
+        serialized_key,
+        backend=default_backend())
     return public_key
 
 # TEST

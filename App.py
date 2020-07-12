@@ -1,18 +1,18 @@
 from appJar import gui
 import Chat
 import ChordNoIP
-import socket
-import time
 import threading
 import json
 from os import path
+
+
 class App_UI(object):
     gui = gui("Threading Chord")
     chat_content = ""
     input_ready = False
     port = 11111
     quit = False
-    entry_address = "",
+    entry_address = ""
     username = ""
     friend_name = ""
     connected = False
@@ -68,7 +68,7 @@ class App_UI(object):
         with open("friend_list.txt", 'w') as outfile:
             json.dump(app.friend_list, outfile)
 
-        
+
 def login(button):
     global app
     app.username = app.gui.getEntry("Username")
@@ -78,7 +78,8 @@ def login(button):
         app.entry_address = f"127.0.0.1:{app.entry_address}"
         print(f"Entry Adress: {app.entry_address}")
     connect_to_overlay(app)
-        
+
+
 def connect_to_overlay(app):
     app.gui.stop()
 
@@ -87,13 +88,12 @@ def connect_to_overlay(app):
 
     app.gui = gui(f"{app.username} Chat")
     app.gui.startTabbedFrame("TabbedFrame")
-    
+
     app.gui.startTab("Direct Connect")
     app.gui.addLabelEntry("Username of Friend")
     app.gui.addButtons(["Connect"], connect_to_friend)
     app.gui.stopTab()
 
-    
     app.gui.startTab("Friend List")
     app.gui.addLabelOptionBox("Friend List", app.friend_list)
     app.gui.addButtons(["Connect to selected Friend"], connect_to_friend_from_list)
@@ -102,12 +102,14 @@ def connect_to_overlay(app):
     app.gui.stopTabbedFrame()
     app.gui.go()
 
+
 def connect_to_friend_from_list(button):
     global app
     global local_node
     friend_name = app.gui.getOptionBox("Friend List")
     app.gui.setEntry("Username of Friend", friend_name)
     connect_to_friend(button)
+
 
 def connect_to_friend(button):
     global app
@@ -121,8 +123,8 @@ def connect_to_friend(button):
     if query_response == "ERROR":
         app.gui.warningBox("Wrong Username", f"No such User {app.friend_name}")
     else:
-        
-        friend_ip, friend_port = query_response 
+
+        friend_ip, friend_port = query_response
         print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
         local_node.start_chat(friend_ip, int(friend_port))
 
