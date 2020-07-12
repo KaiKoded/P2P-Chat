@@ -4,7 +4,8 @@ import ChordNoIP
 import socket
 import time
 import threading
-
+import json
+from os import path
 class App_UI(object):
     gui = gui("Threading Chord")
     chat_content = ""
@@ -18,6 +19,14 @@ class App_UI(object):
     conn_or_socket = {}
     threads = []
     socket = {}
+    friend_list = []
+
+    def __init__(self):
+        super().__init__()
+        if not path.exists("friend_list.txt"):
+            return
+        with open('friend_list.txt') as json_file:
+            self.friend_list = json.load(json_file)
 
     def read_message(self, friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
@@ -49,6 +58,13 @@ class App_UI(object):
             self.socket = {}
         self.chat_content = ""
 
+    def add_friend(self, friend_name: str):
+        print("Adding Friend")
+        self.friend_list.append(self.friend_name) if self.friend_name not in self.friend_list else self.friend_list
+        self.gui.changeOptionBox("Friend List", self.friend_list)
+        with open("friend_list.txt", 'w') as outfile:
+            json.dump(app.friend_list, outfile)
+
         
 def login(button):
     global app
@@ -67,21 +83,42 @@ def connect_to_overlay(app):
     local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
     app.gui = gui(f"{app.username} Chat")
-    app.gui.addLabelEntry("Friend to connect")
+    app.gui.startTabbedFrame("TabbedFrame")
+    
+    app.gui.startTab("Direct Connect")
+    app.gui.addLabelEntry("Username of Friend")
     app.gui.addButtons(["Connect"], connect_to_friend)
+    app.gui.stopTab()
+
+    
+    app.gui.startTab("Friend List")
+    app.gui.addLabelOptionBox("Friend List", app.friend_list)
+    app.gui.addButtons(["Connect to selected Friend"], connect_to_friend_from_list)
+    app.gui.stopTab()
+
+    app.gui.stopTabbedFrame()
     app.gui.go()
 
+def connect_to_friend_from_list(button):
+    global app
+    global local_node
+    friend_name = app.gui.getOptionBox("Friend List")
+    app.gui.setEntry("Username of Friend", friend_name)
+    connect_to_friend(button)
 
 def connect_to_friend(button):
     global app
     global local_node
-    app.friend_name = app.gui.getEntry("Friend to connect")
+    app.friend_name = app.gui.getEntry("Username of Friend")
+    app.add_friend(app.friend_name)
+
     hashed_username = local_node.hash_username(app.friend_name)
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
     query_response = local_node.query(hashed_username, (peer_ip, int(peer_port)))
     if query_response == "ERROR":
-        app.gui.warningBox("Wrong Username", "No such User")
+        app.gui.warningBox("Wrong Username", f"No such User {app.friend_name}")
     else:
+        
         friend_ip, friend_port = query_response 
         print("connect_to_friend() : " + friend_ip + ":" + str(friend_port))
         local_node.start_chat(friend_ip, int(friend_port))
