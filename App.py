@@ -93,7 +93,7 @@ def connect_to_overlay(app):
     local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
     if not local_node.joined:
-        app.gui.warningBox("Username already exists", f"authorization failed: {app.username}")
+        app.gui.warningBox("Username existiert bereits!", f"Authorisierung fehlgeschlagen!: {app.username}")
         return
 
     app.gui.stop()
@@ -102,7 +102,7 @@ def connect_to_overlay(app):
 
     app.gui.startTab("Direkte Verbindung")
     app.gui.addLabelEntry("Username des Freundes")
-    app.gui.addButtons(["Connect"], connect_to_friend)
+    app.gui.addButtons(["Verbinde mich!"], connect_to_friend)
     app.gui.stopTab()
 
     app.gui.startTab("Kontaktliste")
@@ -121,7 +121,7 @@ def connect_to_friend_from_list(button):
     global app
     global local_node
     friend_name = app.gui.getOptionBox("Kontaktliste")
-    if friend_name == "-- Friends --":
+    if friend_name == "-- Freunde --":
         return
     app.gui.setEntry("Username des Freundes", friend_name)
     connect_to_friend(button)
