@@ -182,12 +182,9 @@ class LocalNode(object):
             if joined:
                 message = "SUCC_" + str(k) + "_LISTENING_" + str(self.port) + "_" + str(self.ring_position)
             else:
-                """
-                Diese Flag existiert für den Join eines neuen Peers. Wenn joined == False, dann wird der anfragende Peer nicht als Mitglied des Chord-Rings angesehen.
-                Der Grund dafür ist, dass Peer 0 einen neu joinenden Peer sofort als Successor und Finger speichert, wenn er alleine im Netzwerk ist.
-                Wir wollen das aber nicht, weil es sein kann, dass der Name des neu joinenden Peers bereits vergeben ist; dann wird der Eintritt in das Netzwerk nämlich
-                verweigert
-                """
+                # Diese Flag existiert für den Join eines neuen Peers. Wenn joined == False, dann wird der anfragende Peer nicht als Mitglied des Chord-Rings angesehen.
+                # Der Grund dafür ist, dass Peer 0 einen neu joinenden Peer sofort als Successor und Finger speichert, wenn er alleine im Netzwerk ist.
+                # Wir wollen das aber nicht, weil es sein kann, dass der Name des neu joinenden Peers bereits vergeben ist; dann wird der Eintritt in das Netzwerk nämlich verweigert
                 message = "SUCC_" + str(k) + "_LISTENING_" + str(self.port) + "_NOJOIN_" + str(self.ring_position)
             self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.succsock.settimeout(GLOBAL_TIMEOUT)
