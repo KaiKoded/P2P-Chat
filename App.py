@@ -68,9 +68,9 @@ class App_UI(object):
         self.chat_content = ""
 
     def add_friend(self, friend_name: str):
-        print("Adding friend.")
+        print("Füge Freund hinzu.")
         self.friend_list.append(self.friend_name) if self.friend_name not in self.friend_list else self.friend_list
-        self.gui.changeOptionBox("Contact list", self.friend_list)
+        self.gui.changeOptionBox("Kontaktliste", self.friend_list)
         with open("friend_list.txt", 'w') as outfile:
             json.dump(app.friend_list, outfile)
 
@@ -100,15 +100,15 @@ def connect_to_overlay(app):
     app.gui = gui(f"{app.username}'s Chat")
     app.gui.startTabbedFrame("TabbedFrame")
 
-    app.gui.startTab("Direct Connection")
-    app.gui.addLabelEntry("Username of friend")
+    app.gui.startTab("Direkte Verbindung")
+    app.gui.addLabelEntry("Username des Freundes")
     app.gui.addButtons(["Connect"], connect_to_friend)
     app.gui.stopTab()
 
-    app.gui.startTab("Contact list")
-    app.gui.addLabelOptionBox("Contact list", app.friend_list)
+    app.gui.startTab("Kontaktliste")
+    app.gui.addLabelOptionBox("Kontaktliste", app.friend_list)
 
-    app.gui.addButtons(["Connect with friend"], connect_to_friend_from_list, 1, 0, 2)
+    app.gui.addButtons(["Verbinde mich mit einem Freund"], connect_to_friend_from_list, 1, 0, 2)
     app.gui.stopTab()
 
     app.gui.stopTabbedFrame()
@@ -120,17 +120,17 @@ def connect_to_overlay(app):
 def connect_to_friend_from_list(button):
     global app
     global local_node
-    friend_name = app.gui.getOptionBox("Contact list")
+    friend_name = app.gui.getOptionBox("Kontaktliste")
     if friend_name == "-- Friends --":
         return
-    app.gui.setEntry("Username of friend", friend_name)
+    app.gui.setEntry("Username des Freundes", friend_name)
     connect_to_friend(button)
 
 
 def connect_to_friend(button):
     global app
     global local_node
-    app.friend_name = app.gui.getEntry("Username of friend")
+    app.friend_name = app.gui.getEntry("Username des Freundes")
     app.add_friend(app.friend_name)
 
     hashed_username = local_node.hash_username(app.friend_name)
@@ -138,7 +138,7 @@ def connect_to_friend(button):
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
     query_response = local_node.query(hashed_username, (peer_ip, int(peer_port)))
     if query_response == "ERROR":
-        app.gui.warningBox("Wrong Username", f"User does not exist: {app.friend_name}")
+        app.gui.warningBox("Falscher Username", f"User existiert nicht: {app.friend_name}")
     else:
 
         friend_ip, friend_port = query_response
