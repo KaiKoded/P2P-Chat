@@ -2,12 +2,23 @@ import random
 import sys
 import numpy as np
 import hashlib
+import time
+import threading
+import socket
 from datetime import datetime, timedelta
 
-from HelperFunctions import *
 from Settings import *
 from KeyGen import *
 
+# Decorator für daemons:
+def repeat_and_sleep(sleep_time):
+    def decorator(func):
+        def inner(self, *args, **kwargs):
+            while not self.shutdown_:
+                time.sleep(sleep_time)
+                func(self, *args, **kwargs)
+        return inner
+    return decorator
 
 class Daemon(threading.Thread):
     def __init__(self, obj, method):
@@ -22,27 +33,27 @@ class Daemon(threading.Thread):
 class LocalNode(object):
     def __init__(self, app, port: int, entry_address: str, username: str):
         self.app = app
-        # Eigene Adresse ist [IP, Port, Position]
+        # Eigene Adresse ist [IP: str, Port: int, Position: int]
         self.port = port
         self.shutdown_ = False
         self.daemons = {}
-        # Predecessor und Successor sind [IP, Port, Position]
+        # Predecessor und Successor sind [IP: str, Port: int, Position: int]
         self.predecessor = []
         self.successor = []
-        # Fingers sind [Position : [ID, Port]]
+        # Fingers sind [Position: int : [IP: str, Port: int]]
         self.fingers = {}
-        # DHT Einträge sind {hash : [IP, Port, Public Key, Timestamp]}
+        # DHT Einträge sind {hash: int : [IP: str, Port: int, Public Key: str, Timestamp: float]}
         self.keys = {}
         self.lock = threading.Lock()
-        self.entry_address = entry_address
+        # Aus KeyGen.py:
         self.private_key = getPrivateKey()
         self.public_key = str(serializePublicKey(getPublicKey(self.private_key)), "utf-8")
+        self.entry_address = entry_address
         if self.entry_address != "":
             self.entry_address = self.entry_address.split(":")
             self.entry_address = (":".join(self.entry_address[:-1]), int(self.entry_address[-1]))
         self.username = username
         self.ring_position = self.id()
-        print(f"Eigener Port = {self.port}")
         print(f"Eigene Ringposition = {self.ring_position}")
         self.joined = self.join()
         if self.joined:
@@ -51,7 +62,11 @@ class LocalNode(object):
     def hash_username(self, username: str):
         return int(hashlib.sha1(username.encode("utf-8")).hexdigest(), 16) % SIZE
 
+    def id(self):
+        return random.randint(0, SIZE - 1)
+
     def shutdown(self):
+        # Flag für die daemons:
         self.shutdown_ = True
         print("shutdown() : Shutdown wird eingeleitet.")
         if self.successor and not self.successor[2] == self.ring_position:
@@ -61,7 +76,7 @@ class LocalNode(object):
                 to_successor.connect((self.successor[0], self.successor[1]))
                 to_successor.send(bytes(
                     "SHUTDOWN_PREDECESSOR:_" + self.predecessor[0] + "_" + str(self.predecessor[1]) + "_" + str(
-                        self.predecessor[2]), "utf-8"))
+                        self.predecessor[2]) + "_" + str(self.ring_position), "utf-8"))
             except socket.error:
                 print("shutdown() : Fehler beim Senden der Predecessor-Informationen.")
             to_successor.close()
@@ -73,7 +88,7 @@ class LocalNode(object):
                 to_predecessor.connect((self.predecessor[0], self.predecessor[1]))
                 to_predecessor.send(bytes(
                     "SHUTDOWN_SUCCESSOR:_" + self.successor[0] + "_" + str(self.successor[1]) + "_" + str(
-                        self.successor[2]), "utf-8"))
+                        self.successor[2]) + "_" + str(self.ring_position), "utf-8"))
             except socket.error:
                 print("shutdown() : Fehler beim Senden der Successor-Informationen.")
             to_predecessor.close()
@@ -92,14 +107,10 @@ class LocalNode(object):
             self.daemons[key].start()
         print("Daemons gestartet.")
 
-    def id(self):
-        # return hash(self.username) % SIZE
-        # return int(hashlib.sha1(self.username.encode("utf-8")).hexdigest(), 16) % SIZE
-        return random.randint(0, SIZE - 1)
-
     def join(self):
-        #print("Join gestartet.")
         if not self.entry_address:
+            # Wenn man keine entry_address eingibt, wird eine neue Chord-DHT gestartet
+            # Daher setzt man sich selbst als Successor und Predecessor und speichert seinen Usernamen bei sich selbst
             self.successor = ["", self.port, self.ring_position]
             self.predecessor = ["", self.port, self.ring_position]
             username_key = int(hashlib.sha1(self.username.encode("utf-8")).hexdigest(), 16) % SIZE
@@ -107,38 +118,48 @@ class LocalNode(object):
             self.keys[username_key] = ["", self.port, self.public_key, datetime.timestamp(datetime.utcnow())]
             print("Neue Chord DHT wurde gestartet. Warte auf Verbindungen.")
             return True
-        #print("join() : Frage an, ob Name verfügbar.")
+        # Folgendes passiert wenn eine entry_address gesetzt wurde:
+        # Verteile eigenen Namen in der DHT:
         distribute_status = self.distribute_name(self.entry_address)
         if distribute_status == "ERROR":
             print("join() : Fehler beim Verteilen des Namens.")
             return False
-        #print("join() : Suche Successor von eigener Ringposition")
+        # Suche nach dem Peer, der zur Zeit noch unsere Ringposition verwaltet:
         succinfo = self.succ(self.ring_position, self.entry_address).split("_")
         if succinfo[0] == "ERROR":
             print("Point of Entry nicht erreichbar. Programm wird beendet.")
-            self.shutdown()
             return False
+        # Wenn succinfo[0] leer ist, bedeutet das, dass der sendende Peer seine IP nicht wusste.
+        # Das wird normalerweise in der succ()-Funktion korrigiert. Wenn aber nicht, bedeutet das, dass genau unser
+        # Entry-Peer unsere Ringposition verwaltet und dieser gleichzeitig sein eigener Successor ist.
+        # Quasi nur relevant für Peer 1. Wir korrigieren es also hier:
         if not succinfo[0]:
             succinfo[0] = self.entry_address[0]
         self.successor = [succinfo[0], int(succinfo[1]), int(succinfo[2])]
-        #print("join() : Gebe successor bescheid")
-        self.notify_successor()
+        # Gebe dem gefundenen neuen Successor bescheid, damit er mich als Predecessor setzen kann:
+        notify_status = self.notify_successor()
+        if notify_status == "ERROR":
+            print("join() : Successor kann nicht kontaktiert werden. Bitte erneut versuchen.")
+            return False
         print("join() : Successor " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
+        # Berechne alle meine Fingerpositionen:
         finger_positions = (self.ring_position + 2 ** np.arange(0, m)) % SIZE
-        #print("join() : Suche nach Fingern...")
+        # Der successor ist immer ein Finger, also macht es keinen Sinn, dafür extra eine Anfrage raus zu schicken:
         print("join() : Finger " + self.successor[0] + ":" + str(self.successor[1]) + " an Position " + str(
             self.successor[2]) + " gefunden.")
         self.fingers[self.successor[2]] = [self.successor[0], self.successor[1]]
         found = self.successor[2]
-        for finger in finger_positions:
-            if (finger - self.ring_position) % SIZE > (found - self.ring_position) % SIZE:
-                # if not (self.successor[2] - finger) % SIZE < (self.successor[2] - self.ring_position) % SIZE:
-                #print("join() : Suche nach Finger mit Position " + str(finger))
-                info = self.succ(finger).split("_")
+        for fpos in finger_positions:
+            # Wir brauchen nur eine Anfrage raus schicken, wenn fpos weiter von uns weg liegt als der zuletzt gefundene
+            # Finger:
+            if (fpos - self.ring_position) % SIZE > (found - self.ring_position) % SIZE:
+                info = self.succ(fpos).split("_")
                 if info[0] == "ERROR":
                     continue
                 found = int(info[2])
+                # Der gefundene Peer wird nur als Finger gespeichert, wenn ich ihn noch nicht kenne und ich es nicht
+                # selbst bin:
                 if not found == self.ring_position and found not in list(self.fingers):
                     print("join() : Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
                     self.fingers[found] = [info[0], int(info[1])]
@@ -146,69 +167,74 @@ class LocalNode(object):
         return True
 
     def succ(self, k, entry=None, joined=True):
-        # print("succ() : Trying to acquire lock.")
-        # print("succ() : Lock acquired.")
         retries = 0
         while retries < SUCC_RET:
+            # Lock, weil mehrere Daemons auf succ() zugreifen. Better threadsafe than threadsorry.
             self.lock.acquire()
             if entry is not None:
+                # Wenn eine entry_address an succ übergeben wird, dann wissen wir ja, an welchen Peer wir die Anfrage
+                # weiterleiten:
                 address_to_connect_to = entry
-                # message = "JOIN_" + k + "_" + "ID" + "_" + self.ring_position
             else:
+                # Wenn nicht, müssen wir erst herausfinden, welcher unserer bekannten Peers am nächsten ist:
+                # Zuerst checken wir, ob unser Successor den Key verwaltet. Dann können wir sofort returnen.
                 distance_to_successor = (self.successor[2] - self.ring_position) % SIZE
                 if distance_to_successor == 0:
+                    # Wenn wir unser eigener Successor sind (entweder weil wir alleine im Netzwerk sind oder
+                    # kurzzeitig in Ausnahmefällen mit sehr wenigen Peers im Netzwerk), wollen wir uns selbst
+                    # zurückgeben. Das führt natürlich potentiell zu Fehlern, falls wir nicht alleine sind und genau
+                    # während der kurzen Zeit, in der wir weder Successor noch Finger haben, über uns geroutet wird.
+                    # Dies ist aber nur relevant, wenn unser Successor all unsere Finger stellt und ausfällt, was
+                    # natürlich relativ unwahrscheinlich ist.
                     distance_to_successor = SIZE
                 distance_to_key = (k - self.ring_position) % SIZE
-                # print("Distanz zum Successor: " + str(distance_to_successor))
-                # print("Distanz zum Key: " + str(distance_to_key))
+                # Wenn unser successor den key verwaltet, returnen wir ihn:
                 if distance_to_key <= distance_to_successor:
-                    # print("succ() : Returning: " + str(self.successor[0]) + "_" + str(self.successor[1]) + "_" + str(self.successor[2]))
                     self.lock.release()
                     return self.successor[0] + "_" + str(self.successor[1]) + "_" + str(self.successor[2])
-                finger_positions = np.array(list(self.fingers))
-                finger_distances = (k - finger_positions) % SIZE
+                # Wenn nicht, gehen wir unsere Finger durch, um zu bestimmen, über wen die Anfrage weiter geleitet wird:
+                finger_peers = np.array(list(self.fingers))
+                finger_peer_distances_to_key = (k - finger_peers) % SIZE
                 try:
-                    id_of_closest_finger = int(finger_positions[np.where(finger_distances == np.min(finger_distances))])
-                    if np.min(finger_distances) > (k - self.successor[2]) % SIZE:
-                        # print("succ() : Route über successor " + str(self.successor[2]))
+                    id_of_closest_finger = int(finger_peers[np.where(finger_peer_distances_to_key == np.min(finger_peer_distances_to_key))])
+                    if np.min(finger_peer_distances_to_key) > (k - self.successor[2]) % SIZE:
+                        # Wenn wir mit all unseren Fingern den Key überschreiten, routen wir über unseren Successor
+                        # weiter:
                         address_to_connect_to = (self.successor[0], self.successor[1])
                     else:
+                        # Ansonsten über den nächsten Finger:
                         address_to_connect_to = tuple(self.fingers[id_of_closest_finger])
-                        # print("succ() : Route über Finger " + str(id_of_closest_finger))
                 except ValueError:
+                    # Wenn wir keine Finger haben, routen wir auch über unseren Successor:
                     address_to_connect_to = (self.successor[0], self.successor[1])
-                # print("succ() : Suche nach " + str(k))
-            # print("succ(): Looking for key " + str(k) + " at " + str(address_to_connect_to))
             if joined:
                 message = "SUCC_" + str(k) + "_LISTENING_" + str(self.port) + "_" + str(self.ring_position)
             else:
-                # Diese Flag existiert für den Join eines neuen Peers. Wenn joined == False, dann wird der anfragende Peer nicht als Mitglied des Chord-Rings angesehen.
-                # Der Grund dafür ist, dass Peer 0 einen neu joinenden Peer sofort als Successor und Finger speichert, wenn er alleine im Netzwerk ist.
-                # Wir wollen das aber nicht, weil es sein kann, dass der Name des neu joinenden Peers bereits vergeben ist; dann wird der Eintritt in das Netzwerk nämlich verweigert
+                # Diese Flag existiert für den Join eines neuen Peers. Wenn joined == False, dann wird der anfragende
+                # Peer nicht als Mitglied des Chord-Rings angesehen. Der Grund dafür ist, dass ein Peer einen neu
+                # joinenden Peer sofort als Successor und Finger speichert, wenn er alleine im Netzwerk ist (also vor
+                # allem relevant für Peer 0). Wir wollen das aber nicht, weil es sein kann, dass der Name des neu
+                # joinenden Peers bereits vergeben ist; dann wird der Eintritt in das Netzwerk nämlich verweigert.
                 message = "SUCC_" + str(k) + "_LISTENING_" + str(self.port) + "_NOJOIN_" + str(self.ring_position)
-            self.succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.succsock.settimeout(GLOBAL_TIMEOUT)
-            # print("succ(): Verbinde mit " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
-            # print("succ(): Mein aktueller successor: " + str(self.successor))
-            # print("succ(): Gesucht wird bei: " + address_to_connect_to[0] + ":" + str(address_to_connect_to[1]))
+            # Da wir nun den zu kontaktierenden Peer herausgefunden haben, können wir die Nachricht schicken:
+            succsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            succsock.settimeout(GLOBAL_TIMEOUT)
             try:
-                self.succsock.connect(address_to_connect_to)
-                self.succsock.send(bytes(message, "utf-8"))
-                # print("succ(): Warte auf Antwort von " + str(address_to_connect_to[0] + ":" + str(address_to_connect_to[1])))
-                # print("Mein Successor: " + str(self.successor))
-                # print("Meine Finger:")
-                # print(list(self.fingers.values()))
-                response = str(self.succsock.recv(BUFFER_SIZE), "utf-8").split("_")
+                succsock.connect(address_to_connect_to)
+                succsock.send(bytes(message, "utf-8"))
+                response = str(succsock.recv(BUFFER_SIZE), "utf-8").split("_")
+                # Hier ist die Korrektur, von der oben gesprochen wurde. Wenn response[0] == "" ist, kennt der
+                # returnende Peer seine eigene IP nicht. Da succ() kaskadierend ausgeführt wird, MUSS das der Peer sein,
+                # den wir selbst kontaktiert haben (sonst hätte ein anderer Peer die Korrektur bereits ausgeführt).
+                # Wir können die IP also einfach ersetzen.
                 if response[0] == "":
                     response[0] = address_to_connect_to[0]
                 response = "_".join(response)
-                # print("succ(): Antwort erhalten.")
-                self.succsock.close()
+                succsock.close()
                 self.lock.release()
-                # print("succ() : Abgeschlossen. Lock released.")
                 return response
             except socket.error:
-                self.succsock.close()
+                succsock.close()
                 self.lock.release()
                 print(str(threading.currentThread()) + " : succ() : Socket-Fehler. Versuche erneut...")
                 retries += 1
@@ -218,82 +244,72 @@ class LocalNode(object):
                 return "ERROR"
 
     def notify_successor(self):
+        # Funktion für den Join. Wir teilen unserem neuen Successor mit, dass wir gejoint sind.
         notisock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #print(f"notify_successor() : Verbinde mit {self.successor[0]}:{self.successor[1]} ({self.successor[2]})")
-        notisock.connect((self.successor[0], self.successor[1]))
-        notisock.send(
-            bytes("JOINED_LISTENING_" + str(self.port) + "_" + str(self.ring_position), "utf-8"))
         notisock.settimeout(GLOBAL_TIMEOUT)
-        # try:
-        # predinfo = str(notisock.recv(BUFFER_SIZE), "utf-8").split("_")
-        # self.predecessor = [predinfo[0], int(predinfo[1]), int(predinfo[2])]
-        # except socket.timeout:
-        # pass
-        notisock.close()
+        try:
+            notisock.connect((self.successor[0], self.successor[1]))
+            notisock.send(bytes("JOINED_LISTENING_" + str(self.port) + "_" + str(self.ring_position), "utf-8"))
+            notisock.close()
+            return "SUCCESS"
+        except socket.error:
+            notisock.close()
+            return "ERROR"
 
     @repeat_and_sleep(CHECK_PREDECESSOR_INT)
-    @retry_on_socket_error(CHECK_PREDECESSOR_RET)
     def check_predecessor(self):
-        # print("check_predecessor(): Pinging predecessor.")
         if not self.predecessor:
-            # print("Kein predecessor vorhanden.")
+            # Wenn wir keinen Predecessor haben, gibt es nichts zu checken.
             return
         if self.predecessor[2] == self.ring_position:
-            # print("check_predecessor(): Ich bin mein eigener Predecessor.")
+            # Das gleiche gilt, wenn wir unser eigener Predecessor sind.
             return
-        self.cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.cpsock.settimeout(GLOBAL_TIMEOUT)
-        # print("check_predecessor(): Pinge " + str(self.predecessor[0]) + ":" + str(self.predecessor[1]))
+        cpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        cpsock.settimeout(GLOBAL_TIMEOUT)
         try:
-            self.cpsock.connect((self.predecessor[0], self.predecessor[1]))
-            self.cpsock.send(bytes("PING", "utf-8"))
-            response = str(self.cpsock.recv(BUFFER_SIZE), "utf-8")
+            cpsock.connect((self.predecessor[0], self.predecessor[1]))
         except socket.error:
             print("check_predecessor(): Keine Antwort erhalten. Entferne predecessor " + str(self.predecessor[2]))
             self.predecessor = []
-            self.cpsock.close()
-            return
-        # print("check_predecessor(): Antwort erhalten.")
-        self.cpsock.close()
+        cpsock.close()
 
     @repeat_and_sleep(STABILIZE_INT)
-    @retry_on_socket_error(STABILIZE_RET)
     def stabilize(self):
-        # print("stabilize() : Started")
         if self.successor[2] == self.ring_position:
-            # print("stabilize(): Alles in Ordnung.")
+            # Wenn wir unser eigener Successor sind, gibts es nichts zu stabilizen.
             return
-        self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.stabsock.settimeout(GLOBAL_TIMEOUT)
+        stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stabsock.settimeout(GLOBAL_TIMEOUT)
         try:
-            self.stabsock.connect((self.successor[0], self.successor[1]))
+            stabsock.connect((self.successor[0], self.successor[1]))
         except socket.error:
+            # Falls unser successor nicht antwortet, wird ein neuer gesetzt:
             print("stabilize() : Successor " + str(self.successor[2]) + " antwortet nicht. Setze neuen Successor.")
+            stabsock.close()
             self.newsuccessor()
-            self.stabsock.close()
             return
         message = "STABILIZE_LISTENING_" + str(self.port) + "_ID_" + str(self.ring_position)
-        self.stabsock.send(bytes(message, "utf-8"))
-        # print("stabilize(): Nachricht an " + str(self.successor[0]) + ":" + str(self.successor[1]) + " : " + message)
-        response = str(self.stabsock.recv(BUFFER_SIZE), "utf-8").split("_")
-        # print("stabilize(): Antwort erhalten: " + "_".join(response))
+        stabsock.send(bytes(message, "utf-8"))
+        response = str(stabsock.recv(BUFFER_SIZE), "utf-8").split("_")
         if int(response[2]) == self.ring_position:
-            # print("stabilize(): Alles in Ordnung.")
-            self.stabsock.close()
+            # Wenn man sich selbst als Antwort bekommt, ist alles in Ordnung.
+            stabsock.close()
             return
-        # print("stabilize(): " + response[2] + " unterscheidet sich von " + str(self.ring_position))
+        # Wenn man einen anderen Peer als Antwort bekommt, setzt man sich diesen als Successor und sagt ihm bescheid,
+        # dass man sein Predecessor sein könnte.
         print("stabilize(): Setze neuen successor: " + response[0] + ":" + response[1] + " (" + response[2] + ")")
+        # TODO: Ping bevor Successor setzen
         self.successor = [response[0], int(response[1]), int(response[2])]
-        self.stabsock.close()
-        self.stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # print("stabilize(): Verbinde mit " + str(self.successor[0]) + ":" + str(self.successor[1]))
-        self.stabsock.connect((self.successor[0], self.successor[1]))
-        # print("stabilize(): Neuem Successor wird bescheid gesagt.")
-        self.stabsock.send(
+        stabsock.close()
+        stabsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stabsock.connect((self.successor[0], self.successor[1]))
+        stabsock.send(
             bytes("PREDECESSOR?_" + str(self.port) + "_" + str(self.ring_position), "utf-8"))
-        self.stabsock.close()
+        stabsock.close()
 
     def newsuccessor(self):
+        # Wir filtern unseren Successor aus unserer Fingertabelle heraus
+        # TODO: Einfach den successor aus der Fingertabelle löschen?
         fingers_without_successor = [x for x in list(self.fingers) if x != self.successor[2]]
         if not fingers_without_successor:
             print(
@@ -301,13 +317,14 @@ class LocalNode(object):
             self.successor = ["", self.port, self.ring_position]
             return
         finger_positions = np.array(fingers_without_successor)
+        # TODO: Ist das nicht falschrum?
         potential_new_successors = (self.ring_position - finger_positions) % SIZE
         new_successor = int(finger_positions[np.where(potential_new_successors == np.min(potential_new_successors))])
+        # TODO: Ping bevor Successor setzen
         self.successor = self.fingers[new_successor] + [new_successor]
         print("stabilize() : Neuer Successor: " + str(new_successor))
 
     @repeat_and_sleep(FIX_FINGERS_INT)
-    @retry_on_socket_error(FIX_FINGERS_RET)
     def fix_fingers(self):
         if self.successor[2] == self.ring_position:
             return
@@ -317,13 +334,17 @@ class LocalNode(object):
         for fpos in finger_positions:
             # Es wird nur eine Anfrage rausgeschickt, wenn die aktuell zu prüfende Fingerposition weiter weg ist als der zuletzt gefundene Finger:
             if not found or (fpos - self.ring_position) % SIZE > (found - self.ring_position) % SIZE:
+                #print(f"fix_fingers() : succ({fpos})")
                 info = self.succ(fpos).split("_")
+                #print(f"fix_fingers() : Result: {info}")
                 if info[0] == "ERROR":
                     continue
+                found = int(info[2])
+                if found == self.ring_position:
+                    break
                 if not [info[0], int(info[1])] in self.fingers.values() and not int(info[2]) == self.ring_position:
                     print("fix_fingers(): Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
                     self.fingers[int(info[2])] = [info[0], int(info[1])]
-                    found = int(info[2])
         if self.fingers:
             # Überprüfe, ob nun redundante Finger gespeichert sind:
             times_minimum = np.zeros_like(list(self.fingers))
@@ -359,6 +380,7 @@ class LocalNode(object):
     def distribute_name(self, entry = None):
         username_key = self.hash_username(self.username)
         print("distribute_name() : Username-Ringposition: " + str(username_key))
+        #print(f"distribute_name() : succ({username_key}, {entry}, {False})")
         responsible_peer = self.succ(username_key, entry, False).split("_")
         print("distribute_name() : Verantwortlicher Peer: " + responsible_peer[0] + ":" + str(
             responsible_peer[1]) + " (" + str(responsible_peer[2]) + ")")
@@ -412,6 +434,7 @@ class LocalNode(object):
         if username_key in list(self.keys):
             # print("check_distributed_name() : Key ist bei sich selbst gespeichert.")
             return
+        #print(f"check_distributed_name() : succ({username_key})")
         responsible_peer = self.succ(username_key).split("_")
         if responsible_peer[0] == "ERROR":
             print(
@@ -582,13 +605,14 @@ class LocalNode(object):
                 del self.conns[addr[0] + ":" + str(addr[1])]
                 # print(addr[0] + ":" + str(addr[1]) + " disconnected (No Message).")
                 break
-            # print("Message from " + addr[0] + ":" + str(addr[1]) + ": " + message)
+            #print("Message from " + addr[0] + ":" + str(addr[1]) + ": " + message)
             msgsplit = message.split("_")
             command = msgsplit[0]
             sending_peer_id = msgsplit[-1]
             response = ""
             if command == "SUCC":
                 # print("Server (succ) : Suche nach " + msgsplit[1] + ", auf Anfrage von Peer " + sending_peer_id)
+                #print(f"client_thread() : succ({msgsplit[1]})")
                 response = self.succ(int(msgsplit[1]))
                 # print("succ() : Key " + msgsplit[1] + " gefunden.")
                 # print("Server (succ) : Antworte " + response)
@@ -694,7 +718,9 @@ class LocalNode(object):
                     print("shutdown() : Setze neuen Predecessor: " + msgsplit[2] + ":" + msgsplit[3] + " (" + msgsplit[
                         4] + ")")
                     self.predecessor = [msgsplit[2], int(msgsplit[3]), int(msgsplit[4])]
-
+                if int(sending_peer_id) in list(self.fingers):
+                    print("shutdown() : Finger " + sending_peer_id + " wird gelöscht.")
+                    del self.fingers[int(sending_peer_id)]
             if response != "":
                 # print("Sending response: " + response)
                 self.conns[addr[0] + ":" + str(addr[1])].send(bytes(response, "utf-8"))

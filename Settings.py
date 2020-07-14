@@ -1,27 +1,27 @@
-# CONFIGURATION FILE
+# Globale Einstellungen
 
-# log size of the ring
+# Grösse des Rings:
 m = 20
 SIZE = 2**m
+
+# Lebensdauer eines Key-Value-Paars (in Sekunden):
 KEY_LIFESPAN = 60 * 60 * 24
 
-BUFFER_SIZE = 2048
-# INT = interval in seconds
-# RET = retry limit
+# Buffer-Size für das Empfangen von Nachrichten im Netzwerk:
+BUFFER_SIZE = 1024
 
+# Globaler Timeout für Sockets:
 GLOBAL_TIMEOUT = 5
 
-# Stabilize
-STABILIZE_INT = 2
-STABILIZE_RET = 3
+# INT = Intervall in Sekunden
+# RET = Retry Limit
 
-# Fix Fingers
-FIX_FINGERS_INT = 10
-FIX_FINGERS_RET = 3
+STABILIZE_INT = 2
+
+FIX_FINGERS_INT = 20
 
 # Check Predecessors
 CHECK_PREDECESSOR_INT = 5
-CHECK_PREDECESSOR_RET = 3
 
 # Succ
 SUCC_RET = 3
