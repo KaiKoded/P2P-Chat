@@ -165,9 +165,12 @@ class LocalNode(object):
                 if info[0] == "ERROR":
                     continue
                 found = int(info[2])
-                # Der gefundene Peer wird nur als Finger gespeichert, wenn ich ihn noch nicht kenne und ich es nicht
-                # selbst bin:
-                if not found == self.ring_position and found not in list(self.fingers):
+                # Wenn wir bei der Fingersuche uns selbst finden, sind wir einmal im Kreis gelaufen und können
+                # abbrechen.
+                if found == self.ring_position:
+                    break
+                # Der gefundene Peer wird nur als Finger gespeichert, wenn ich ihn noch nicht kenne:
+                if found not in list(self.fingers):
                     print("join() : Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
                     self.fingers[found] = [info[0], int(info[1])]
         print("Join abgeschlossen.")
@@ -180,7 +183,7 @@ class LocalNode(object):
             self.lock.acquire()
             if entry is not None:
                 # Wenn eine entry_address an succ übergeben wird, dann wissen wir ja, an welchen Peer wir die Anfrage
-                # weiterleiten:
+                # weiterleiten (relevant nur für das Bootstrapping):
                 address_to_connect_to = entry
             else:
                 # Wenn nicht, müssen wir erst herausfinden, welcher unserer bekannten Peers am nächsten ist:
@@ -207,7 +210,9 @@ class LocalNode(object):
                         finger_peers[np.where(finger_peer_distances_to_key == np.min(finger_peer_distances_to_key))])
                     if np.min(finger_peer_distances_to_key) > (k - self.successor[2]) % SIZE:
                         # Wenn wir mit all unseren Fingern den Key überschreiten, routen wir über unseren Successor
-                        # weiter:
+                        # weiter (falls aus irgendeinem Grund unser Successor nicht in unserer Fingertabelle ist,
+                        # was eigentlich nur passiert, wenn unser Successor ausfällt, wir einen neuen erhalten,
+                        # aber fix_fingers() noch nicht hinterher kam):
                         address_to_connect_to = (self.successor[0], self.successor[1])
                     else:
                         # Ansonsten über den nächsten Finger:
@@ -246,7 +251,7 @@ class LocalNode(object):
                 self.lock.release()
                 print(str(threading.currentThread()) + " : succ() : Socket-Fehler. Versuche erneut...")
                 retries += 1
-                time.sleep(3)
+                time.sleep(2)
             if retries == SUCC_RET:
                 print("succ() : Anfrage gescheitert!")
                 return "ERROR"
@@ -337,7 +342,6 @@ class LocalNode(object):
         # ... und als Successor gesetzt
         self.successor = self.fingers[new_successor] + [new_successor]
         print("newsuccessor() : Neuer Successor: " + str(new_successor))
-        print(self.successor)
 
     @repeat_and_sleep(FIX_FINGERS_INT)
     def fix_fingers(self):
@@ -355,7 +359,7 @@ class LocalNode(object):
                 # abbrechen.
                 if found == self.ring_position:
                     break
-                if not [info[0], int(info[1])] in self.fingers.values() and not int(info[2]) == self.ring_position:
+                if not [info[0], int(info[1])] in self.fingers.values():
                     print("fix_fingers(): Finger " + info[0] + ":" + info[1] + " an Position " + info[2] + " gefunden.")
                     self.fingers[int(info[2])] = [info[0], int(info[1])]
         if self.fingers:
@@ -482,8 +486,8 @@ class LocalNode(object):
                     decrypted_message = decrypt(self.private_key, encrypted_message)
                 # Kriegen wir jedoch einen ValueError, bedeutet das, dass jemand anderes unseren Namen gestohlen hat.
                 # Dies kann nur passieren, wenn der verwaltende Peer ausfällt und genau in der sleep time dieses Daemons
-                # ein neuer Peer den Namen annimmt. In diesem (äußerst unwahrscheinlichen) Fall wird der Peer aus dem
-                # Netzwerk gekickt.
+                # ein neuer Peer den Namen annimmt. In diesem - sofern Zufall - äußerst unwahrscheinlichen Fall wird der
+                # Peer aus dem Netzwerk gekickt.
                 except ValueError:
                     print(
                         "check_distributed_name() : Key kann nicht geändert werden. Möglicherweise ist der verwaltende "
@@ -755,7 +759,7 @@ class LocalNode(object):
                     print("query(): Angefragter Key nicht vorhanden.")
                     response = "ERROR"
             elif command == "CHAT":
-                # Wird ein Chat angefragt, starten wir einen Daemon, der sich mit dem anfragenden Peer verbindet.
+                # Wird ein Chat angefragt, starten wir einen neuen Thread, der sich mit dem anfragenden Peer verbindet.
                 remote_ip = addr[0]
                 remote_port = int(msgsplit[1])
                 remote_name = msgsplit[2]
