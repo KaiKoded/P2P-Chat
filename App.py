@@ -5,7 +5,7 @@ import threading
 import json
 from os import path
 
-
+# Das Oberflächenobject, welches Parameter hat, die zwischen den Threads durchgereicht wird
 class App_UI(object):
     gui = gui("Threading Chord")
     gui.setTitle("P2P Chat Ultimate")
@@ -26,7 +26,7 @@ class App_UI(object):
     window_name = ""
     gui.setGuiPadding(3)
 
-
+    # Lade vorhandene Kontaktliste ein
     def __init__(self):
         super().__init__()
         if not path.exists("friend_list.txt"):
@@ -34,10 +34,12 @@ class App_UI(object):
         with open('friend_list.txt') as json_file:
             self.friend_list = json.load(json_file)
 
+    # Empfangene Nachricht auf der GUI anzeigen
     def read_message(self, friend_name: str, message: str):
         self.chat_content = app.chat_content + "\n" + f"{friend_name} says: {message}"
         self.gui.setMessage("chat_output", self.chat_content)
 
+    # Chat starten
     def chat(self, remote_name):
         self.friend_name = remote_name
         self.add_friend(self.friend_name)
@@ -67,6 +69,7 @@ class App_UI(object):
             self.socket = {}
         self.chat_content = ""
 
+    # Füge Freund hinzu, passe GUI an
     def add_friend(self, friend_name: str):
         print("Füge Freund hinzu.")
         self.friend_list.append(self.friend_name) if self.friend_name not in self.friend_list else self.friend_list
@@ -74,7 +77,7 @@ class App_UI(object):
         with open("friend_list.txt", 'w') as outfile:
             json.dump(app.friend_list, outfile)
 
-
+# Login GUI initialisieren
 def login(button):
     global app
     app.username = app.gui.getEntry("Username")
@@ -85,7 +88,7 @@ def login(button):
         #print(f"Point of Entry: {app.entry_address}")
     connect_to_overlay(app)
 
-
+# Ins Overlay connecten
 def connect_to_overlay(app):
 
     global local_node
@@ -97,6 +100,7 @@ def connect_to_overlay(app):
         return
 
     app.gui.stop()
+    # GUI anpassen nach login
     app.gui = gui(f"{app.username}'s Chat")
     app.gui.startTabbedFrame("TabbedFrame")
 
@@ -116,7 +120,7 @@ def connect_to_overlay(app):
     app.gui.setGuiPadding(3)
     app.gui.go()
 
-
+# Mit freund connecten aus Kontaktliste
 def connect_to_friend_from_list(button):
     global app
     global local_node
@@ -126,15 +130,15 @@ def connect_to_friend_from_list(button):
     app.gui.setEntry("Username des Freundes", friend_name)
     connect_to_friend(button)
 
-
+# Direkt zu Freund connecten
 def connect_to_friend(button):
     global app
     global local_node
     app.friend_name = app.gui.getEntry("Username des Freundes")
     app.add_friend(app.friend_name)
-
+    # Position des Peers rausfinden über DHT
     hashed_username = local_node.hash_username(app.friend_name)
-    # TODO: Error handling falls succ fehlschlägt
+
     peer_ip, peer_port, ring_pos = local_node.succ(hashed_username).split("_")
     query_response = local_node.query(hashed_username, (peer_ip, int(peer_port)))
     if query_response == "ERROR":
@@ -148,7 +152,7 @@ def connect_to_friend(button):
 
 app = App_UI()
 local_node = {}
-
+# Überfläche vorbereiten
 app.gui.startLabelFrame("Login Details")
 # these only affect the labelFrame
 app.gui.setSticky("ew")
