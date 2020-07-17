@@ -13,18 +13,16 @@ BUFFER_SIZE = 1024
 # Globaler Timeout für Sockets:
 GLOBAL_TIMEOUT = 5
 
-# INT = Intervall in Sekunden
+# INT = Sleep-Intervall in Sekunden
 # RET = Retry Limit
 
 STABILIZE_INT = 2
 
 FIX_FINGERS_INT = 20
 
-# Check Predecessors
 CHECK_PREDECESSOR_INT = 5
 
-# Succ
+CHECK_DISTRIBUTE_INT = 30
+
 SUCC_RET = 3
 
-# Check Name Distribution
-CHECK_DISTRIBUTE_INT = 30
