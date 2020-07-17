@@ -12,7 +12,7 @@ from appJar import gui
 
 g_app = {}
 
-
+# Nachrichten über Socket empfangen
 def listening(app, conn_or_socket):
     """Listens to incoming Messages from Partner."""
     time.sleep(1)
@@ -44,6 +44,7 @@ def listening(app, conn_or_socket):
     except:
         pass
 
+# Nachrichten über Socket senden
 def sending(app, conn_or_socket):
     """Sends Messages to Partner."""
     # Send Messages
@@ -84,6 +85,7 @@ def chat_button(button):
     else:
         g_app.input_ready = True
 
+# Chat starten
 def start(app, conn_or_socket):
     # Prepare Chat
     global g_app
