@@ -1,6 +1,6 @@
 from appJar import gui
 import Chat
-import ChordNoIP
+import Chord
 import threading
 import json
 from os import path
@@ -93,7 +93,7 @@ def connect_to_overlay(app):
 
     global local_node
 
-    local_node = ChordNoIP.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
+    local_node = Chord.LocalNode(app=app, port=app.port, entry_address=app.entry_address, username=app.username)
 
     if not local_node.joined:
         app.gui.warningBox("Username existiert bereits!", f"Authorisierung fehlgeschlagen!: {app.username}")

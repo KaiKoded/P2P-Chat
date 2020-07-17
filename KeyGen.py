@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 import os
 
+# Stark abgewandelt aber inspiriert von https://nitratine.net/blog/post/asymmetric-encryption-and-decryption-in-python/
 
 def getPrivateKey():
     currentPath = os.getcwd() + "\private_key.pem"

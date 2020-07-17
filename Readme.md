@@ -1,28 +1,33 @@
-# P2P Chat
+#### Projektgruppe 20 ####
 
-## Notizen aus dem Meeting:
+Kai Ketzler (608273)
+Alpay Yilmaz (566833)
+Adrian Schimmelpfennig (573700)
 
-Authentifizierung zur Verhinderung von Identitätsdiebstahl
 
-13. Juli Deadline
+#### Benötigte Packages ####
 
-Keine feste portnummer hardcoden
+cryptography
+appJar
+numpy
+(+ dependencies)
 
-server socket wie client socker dynamisch, damit man mit sich selbst testen kann
+-> requirements.txt
 
-tupel aus IP und Port übergeben
 
-viel loggen
+#### Anleitung ####
 
-netzverkehr aufzeichen (wireshark? TCP-Dump?) -> pcap datei
+1.) App.py ausführen
+2.) Username, eigenen Listen-Port und Point of Entry eingeben
+	-> Für Testzwecke kann der Point of Entry auch einfach nur ein Port sein, dann wird automatisch localhost eingesetzt.
+	-> Aufpassen, dass zwischen den Ports einzelner lokaler Peers mindestens ein Abstand von 2 besteht, weil für den Chat auf (Chord-Port + 1) zugehört wird
+	-> Für Peer 0 muss der Point of Entry leer gelassen werden. So setzt man ein neues Netzwerk auf.
 
-sockets parallel verarbeiten (parallele threads? -> Schwierig vor allem in Python)
-oder Systemaufruf select (ohne parallelisierung)
 
-SHA-2, MD5 hashfunktionen sind ok
+#### Anmerkungen ####
 
-keine Library die Sockets matched oder Chord implementiert
-Library für DHT oder Verschlüsselung ok
-
-1Thread pro Socket schlecht
-SELECT in Python wartet auf mehrere threads bis man ein auf einem schreiben kann 
+- Ein Klick auf das X führt einen regulären Shutdown durch
+- Darauf achten, dass alle Chats geschlossen sind, bevor man die Anwendung schließt, sonst meckert appJar
+- Es werden im Verzeichnis Files für den public- und private key generiert. Um den Authentifizierungsmechanismus lokal zu testen, muss man diese löschen,
+	bevor man einen neuen Peer hinzufügt, der einen bereits vergebenen Namen annehmen soll (das Löschen beeinflusst die bereits vorhandenen Peers nicht)
+- In Settings.py kann man u.A. die Lebensdauer der Key-Value-Pairs einstellen
