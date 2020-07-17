@@ -1,0 +1,6 @@
+appJar==0.94.0
+cffi==1.14.0
+cryptography==2.9.2
+numpy==1.19.0
+pycparser==2.20
+six==1.15.0
